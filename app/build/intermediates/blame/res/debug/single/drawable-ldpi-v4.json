@@ -1,0 +1,34 @@
+[
+    {
+        "merged": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/app/build/intermediates/res/merged/debug/drawable-ldpi-v4/ic_launcher.png",
+        "source": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/app/src/main/res/drawable-ldpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/C:\\Users\\kumokay\\AndroidStudioProjects\\development-master-samples-WiFiDirectDemo1\\app\\build\\intermediates\\res\\merged\\debug\\drawable-ldpi-v4\\ic_launcher.png",
+        "source": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/C:\\Users\\kumokay\\AndroidStudioProjects\\development-master-samples-WiFiDirectDemo1\\app\\src\\main\\res\\drawable-ldpi\\ic_launcher.png"
+    },
+    {
+        "merged": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/C:\\Users\\kumokay\\AndroidStudioProjects\\development-master-samples-WiFiDirectDemo1\\app\\build\\intermediates\\res\\merged\\debug\\drawable-ldpi-v4\\icon.png",
+        "source": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/C:\\Users\\kumokay\\AndroidStudioProjects\\development-master-samples-WiFiDirectDemo1\\app\\src\\main\\res\\drawable-ldpi\\icon.png"
+    },
+    {
+        "merged": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/app/build/intermediates/res/merged/debug/drawable-ldpi-v4/ic_action_discover.png",
+        "source": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/app/src/main/res/drawable-ldpi/ic_action_discover.png"
+    },
+    {
+        "merged": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/C:\\Users\\kumokay\\AndroidStudioProjects\\development-master-samples-WiFiDirectDemo1\\app\\build\\intermediates\\res\\merged\\debug\\drawable-ldpi-v4\\ic_action_discover.png",
+        "source": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/C:\\Users\\kumokay\\AndroidStudioProjects\\development-master-samples-WiFiDirectDemo1\\app\\src\\main\\res\\drawable-ldpi\\ic_action_discover.png"
+    },
+    {
+        "merged": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/app/build/intermediates/res/merged/debug/drawable-ldpi-v4/icon.png",
+        "source": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/app/src/main/res/drawable-ldpi/icon.png"
+    },
+    {
+        "merged": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/app/build/intermediates/res/merged/debug/drawable-ldpi-v4/ic_action_on_off.png",
+        "source": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/app/src/main/res/drawable-ldpi/ic_action_on_off.png"
+    },
+    {
+        "merged": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/C:\\Users\\kumokay\\AndroidStudioProjects\\development-master-samples-WiFiDirectDemo1\\app\\build\\intermediates\\res\\merged\\debug\\drawable-ldpi-v4\\ic_action_on_off.png",
+        "source": "/Users/Lui/AndroidStudioProjects/development-master-samples-WiFiDirectDemo1/C:\\Users\\kumokay\\AndroidStudioProjects\\development-master-samples-WiFiDirectDemo1\\app\\src\\main\\res\\drawable-ldpi\\ic_action_on_off.png"
+    }
+]
