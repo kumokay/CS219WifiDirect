@@ -37,7 +37,8 @@ public class LocalFileStreamingServer implements Runnable {
 	private long cbSkip;
 	private boolean seekRequest;
 	private File mMovieFile;
-	private Socket peerSocket;
+	//private Socket peerSocket;
+	private PrintStream peerPrintStream;
 
 	/**
 	 * This server accepts HTTP request and returns files from device.
@@ -64,26 +65,15 @@ public class LocalFileStreamingServer implements Runnable {
 	public void sendURL()
 	{
 		//send IP and port# to peer
-		try{
-			OutputStream outputStream = peerSocket.getOutputStream();
-			PrintStream printStream = new PrintStream(outputStream);
-
-			String url = "http://" + socket.getInetAddress().getHostAddress() + ":"
+		String url = "http://" + socket.getInetAddress().getHostAddress() + ":"
 					+ socket.getLocalPort();
+		peerPrintStream.print(url);
 
-			printStream.print(url);
-			printStream.close();
-			outputStream.close();
-		}
-		catch (IOException e)
-		{
-			Log.e(TAG, "IOException opening OutputStream to peerSocket");
-		}
 	}
 
-	public String init(String ip, Socket peerSocket) {
+	public String init(String ip, PrintStream peerPrintStream) {
 		String url = null;
-		this.peerSocket = peerSocket;
+		this.peerPrintStream = peerPrintStream;
 
 		try {
 			InetAddress inet = InetAddress.getByName(ip);

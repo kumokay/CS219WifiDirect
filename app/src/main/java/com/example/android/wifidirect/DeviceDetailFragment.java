@@ -48,6 +48,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -71,8 +72,12 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private InetAddress myIP;
     private InetAddress peerIP;
 
-    private Socket peerSocket;
-    //private Socket mySocket;
+//    private Socket peerSocket;
+//    private Socket mySocket;
+//    private InputStream peerIS;
+//    private OutputStream peerOS;
+    private PrintStream peerPrintStream;
+    private Scanner peerScanner;
 
 
     @Override
@@ -147,7 +152,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)));
 
         //String deviceIp = info.groupOwnerAddress.getHostAddress();
-        String httpUri = mServer.init(myIP.getHostAddress(), peerSocket);
+        String httpUri = mServer.init(myIP.getHostAddress(), peerPrintStream);
         if (null != mServer && !mServer.isRunning())
             mServer.start();
         Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
@@ -274,7 +279,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
         @Override
         protected String doInBackground(Void... params) {
-            try {
+
 //                ServerSocket serverSocket = new ServerSocket(8988);
 //                Log.d(WiFiDirectActivity.TAG, "Server: Socket opened");
 //                Socket client = serverSocket.accept();
@@ -289,28 +294,22 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                f.createNewFile();
 //
 //                Log.d(WiFiDirectActivity.TAG, "server: copying files " + f.toString());
-                InputStream inputStream = peerSocket.getInputStream();
-                Scanner scanner = new Scanner(inputStream);
-                String url;
 
-                if(scanner.hasNext())
+                String url = null;
+
+                //will block until input is available
+                while(url == null && peerScanner.hasNextLine())
                 {
-                    url = scanner.nextLine();
-                    Log.d(WiFiDirectActivity.TAG, url);
+                    Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address received");
+                    url = peerScanner.nextLine();
+                    Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
                 }
 
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 intent.setDataAndType(Uri.parse(url), "video/*");
                 startActivity(intent);
 
-                //copyFile(inputstream, new FileOutputStream(f));
-                inputStream.close();
-
-                return f.getAbsolutePath();
-            } catch (IOException e) {
-                Log.e(WiFiDirectActivity.TAG, e.getMessage());
-                return null;
-            }
+                return url;
         }
 
         /*
