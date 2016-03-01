@@ -73,7 +73,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
-    private Socket peersocket = null;
+    private Socket peerSocket = null;
     private String myIP = null;
     private String peerIP = null;
     private ProgressDialog progressDialog = null;
@@ -81,11 +81,12 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
 //    private Socket peerSocket;
 //    private Socket mySocket;
-//    private InputStream peerIS;
-//    private OutputStream peerOS;
-    private PrintStream peerPrintStream;
-    private Scanner peerScanner;
-
+    private InputStream peerIS;
+    private OutputStream peerOS;
+//    private PrintStream peerPrintStream;
+//    private Scanner peerScanner;
+    private BufferedReader peerReader;
+    private BufferedWriter peerWriter;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -159,7 +160,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)));
 
         //String deviceIp = info.groupOwnerAddress.getHostAddress();
-        String httpUri = mServer.init(myIP, peerPrintStream);
+        String httpUri = mServer.init(myIP, peerWriter);
         if (null != mServer && !mServer.isRunning())
             mServer.start();
         Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
@@ -205,12 +206,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // After the group negotiation, we assign the group owner as the file
         // server. The file server is single threaded, single connection server
         // socket.
-        if(info.groupFormed&&info!=null)
-            exchangeIP();
-        if (info.groupFormed) {
 
-            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerSocket)
-                    .execute();
+        if (info.groupFormed && info!=null) {
+            exchangeIP();
+//            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerReader)
+//                    .execute();
 
             if(info.isGroupOwner) {
 
@@ -273,16 +273,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
         private Context context;
         private TextView statusText;
-        private Socket peerSocket;
+        private BufferedReader peerReader;
 
         /**
          * @param context
          * @param statusText
          */
-        public StreamingAsyncTask(Context context, View statusText, Socket peerSocket) {
+        public StreamingAsyncTask(Context context, View statusText, BufferedReader peerReader) {
             this.context = context;
             this.statusText = (TextView) statusText;
-            this.peerSocket = peerSocket;
+            this.peerReader = peerReader;
         }
 
         @Override
@@ -302,22 +302,26 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                f.createNewFile();
 //
 //                Log.d(WiFiDirectActivity.TAG, "server: copying files " + f.toString());
+            String url = null;
 
-                String url = null;
+            try {
 
-                //will block until input is available
-                while(url == null && peerScanner.hasNextLine())
-                {
-                    Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address received");
-                    url = peerScanner.nextLine();
-                    Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
-                }
+
+                //readLine will block until input is available
+                url = peerReader.readLine();
+                Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
 
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 intent.setDataAndType(Uri.parse(url), "video/*");
                 startActivity(intent);
 
-                return url;
+
+            }
+            catch (IOException e)
+            {
+                Log.e(WiFiDirectActivity.TAG, e.getMessage());
+            }
+            return url;
         }
 
         /*
@@ -342,7 +346,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
          */
         @Override
         protected void onPreExecute() {
-            statusText.setText("Opening a server socket");
+            statusText.setText("Opening a listening socket");
         }
 
     }
@@ -363,70 +367,114 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
         return true;
     }
+
     private Handler handle = new Handler(){
         @Override
         public void handleMessage(Message msg){
             switch(msg.what){
-                case 0: if (progressDialog != null && progressDialog.isShowing()) {
+                case 0:
+                    if (progressDialog != null && progressDialog.isShowing()) {
                     progressDialog.dismiss();
-                }
-
+                    }
                     break;
-
             }
+//            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerReader)
+//                    .execute();
         }
     };
     public void exchangeIP(){
-        OutputStream outputStream = null;
-        InputStream inputStream = null;
+//        OutputStream outputStream = null;
+//        InputStream inputStream = null;
         Log.d(WiFiDirectActivity.TAG,"exchange?");
         new Thread() {
             @Override
             public void run() {
                 Socket socket = null;
                 if (info.isGroupOwner) {
+                    //group owner
                     try {
                         ServerSocket serverSocket = new ServerSocket(9000);
                         Log.d(WiFiDirectActivity.TAG, "My IP" + info.groupOwnerAddress.getHostAddress());
                         socket = serverSocket.accept();
-                        peersocket = socket;
+                        peerSocket = socket;
                         Log.d(WiFiDirectActivity.TAG, "exServer: connection done");
-                        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                        writer.write(socket.getRemoteSocketAddress().toString());
+
+                        //peerOS = socket.getOutputStream();
+                        peerWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                        //peerPrintStream = new PrintStream(peerOS);
+                        peerReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+                        peerWriter.write(socket.getRemoteSocketAddress().toString()+"\n");
+                        peerWriter.flush();
                         String line = socket.getRemoteSocketAddress().toString();
                         Log.d(WiFiDirectActivity.TAG, "Peer IP addr: " + line);
                         myIP = info.groupOwnerAddress.getHostAddress();
                         peerIP = line.substring(1, line.indexOf(':'));
-                        writer.close();
+                        //writer.close();
                         //socket.close();
-                        Log.d(WiFiDirectActivity.TAG, myIP + peerIP);
+                        Log.d(WiFiDirectActivity.TAG, "Exchange Completed: " +
+                                "myIP = " + myIP + ", peerIP = "  + peerIP);
+
+                        // Exchange completed
+                        handle.sendEmptyMessage(0);
+                        Log.d(WiFiDirectActivity.TAG, "Dialog dismissed");
+
+                        String url = peerReader.readLine();
+                        Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
+
+                        //Intent intent = new Intent(Intent.ACTION_VIEW);
+                        //intent.setDataAndType(Uri.parse(url), "video/*");
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        startActivity(intent);
+                        Log.d(WiFiDirectActivity.TAG, "Intent sent");
+
                     } catch (IOException e) {
                         Log.e(WiFiDirectActivity.TAG, e.getMessage());
-                        return;
                     }
-                    handle.sendEmptyMessage(0);
+
                 } else {
+                    //peer
                     try {
                         Thread.sleep(500);
                         socket = new Socket();
                         Log.d(WiFiDirectActivity.TAG, "Opening control socket - ");
                         socket.bind(null);
-                        peersocket = socket;
+                        peerSocket = socket;
                         socket.connect((new InetSocketAddress(info.groupOwnerAddress.getHostAddress(), 9000)), 5000);
                         Log.d(WiFiDirectActivity.TAG, info.groupOwnerAddress.getHostAddress());
-                        Log.d(WiFiDirectActivity.TAG, "Connection control socket ");
-                        BufferedReader bff = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                        String line = bff.readLine();
-                        myIP = line.substring(1,line.indexOf(':'));
+                        Log.d(WiFiDirectActivity.TAG, "Connection control socket");
+
+                        //peerIS = socket.getInputStream();
+                        peerReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                        //peerScanner = new Scanner(peerIS);
+                        peerWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+
+                        Log.d(WiFiDirectActivity.TAG, "Attempt to read line");
+                        String line = peerReader.readLine();
+                        myIP = line.substring(1, line.indexOf(':'));
                         peerIP = info.groupOwnerAddress.getHostAddress();
-                        bff.close();
-                        Log.d(WiFiDirectActivity.TAG, myIP + peerIP);
+                        //bff.close();
+                        Log.d(WiFiDirectActivity.TAG, "Exchange Completed: " +
+                                "myIP = " + myIP + ", peerIP = " + peerIP);
+
+                        // Exchange completed
+                        handle.sendEmptyMessage(0);
+                        Log.d(WiFiDirectActivity.TAG, "Dialog dismissed");
+
+                        String url = peerReader.readLine();
+                        Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
+
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        //intent.setDataAndType(Uri.parse(url), "video/*");
+                        startActivity(intent);
+                        Log.d(WiFiDirectActivity.TAG, "Intent sent");
+
                     } catch (InterruptedException e) {
                         Log.e(WiFiDirectActivity.TAG, e.getMessage());
                     } catch (Exception e) {
                         Log.e(WiFiDirectActivity.TAG, e.getMessage());
                     }
-                    handle.sendEmptyMessage(0);
+
                 }
             }
         }.start();

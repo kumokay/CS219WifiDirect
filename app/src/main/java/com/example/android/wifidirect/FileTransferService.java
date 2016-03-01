@@ -102,10 +102,10 @@ public class FileTransferService extends IntentService {
                 mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(Uri.parse(fileUri))));
 
                 String deviceIp = host;
-                String httpUri = mServer.init(deviceIp);
-                if (null != mServer && !mServer.isRunning())
-                    mServer.start();
-                Log.d(WiFiDirectActivity.TAG, "Streaming----------- " + httpUri);
+//                String httpUri = mServer.init(deviceIp);
+//                if (null != mServer && !mServer.isRunning())
+//                    mServer.start();
+//                Log.d(WiFiDirectActivity.TAG, "Streaming----------- " + httpUri);
             } catch (Exception e) {
                 Log.e(WiFiDirectActivity.TAG, e.getMessage());
             } finally {

@@ -3,6 +3,7 @@ package com.example.streamlocalfile;
 import android.util.Log;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -38,7 +39,7 @@ public class LocalFileStreamingServer implements Runnable {
 	private boolean seekRequest;
 	private File mMovieFile;
 	//private Socket peerSocket;
-	private PrintStream peerPrintStream;
+	private BufferedWriter peerWriter;
 
 	/**
 	 * This server accepts HTTP request and returns files from device.
@@ -64,16 +65,24 @@ public class LocalFileStreamingServer implements Runnable {
 
 	public void sendURL()
 	{
-		//send IP and port# to peer
-		String url = "http://" + socket.getInetAddress().getHostAddress() + ":"
+		try{
+			//send IP and port# to peer
+			String url = "http://" + socket.getInetAddress().getHostAddress() + ":"
 					+ socket.getLocalPort();
-		peerPrintStream.print(url);
+			peerWriter.write(url + "\n");
+			peerWriter.flush();
+			Log.e(TAG, "HTTP Server URL sent: " + url);
+		}
+		catch (IOException e)
+		{
+			Log.e(TAG, e.getMessage());
+		}
 
 	}
 
-	public String init(String ip, PrintStream peerPrintStream) {
+	public String init(String ip, BufferedWriter peerWriter) {
 		String url = null;
-		this.peerPrintStream = peerPrintStream;
+		this.peerWriter = peerWriter;
 
 		try {
 			InetAddress inet = InetAddress.getByName(ip);
@@ -265,6 +274,7 @@ public class LocalFileStreamingServer implements Runnable {
 			data = dataSource.createInputStream();
 			byte[] buffer = headers.getBytes();
 			Log.e(TAG, "writing to client");
+			Log.e(TAG, headers);
 			client.getOutputStream().write(buffer, 0, buffer.length);
 
 			// Start sending content.
