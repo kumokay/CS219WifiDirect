@@ -31,6 +31,8 @@ import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.text.format.Formatter;
@@ -43,6 +45,10 @@ import android.widget.TextView;
 import com.example.android.wifidirect.DeviceListFragment.DeviceActionListener;
 import com.example.streamlocalfile.LocalFileStreamingServer;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -50,6 +56,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
@@ -66,11 +73,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
+    private Socket peersocket = null;
+    private String myIP = null;
+    private String peerIP = null;
     private ProgressDialog progressDialog = null;
     private LocalFileStreamingServer mServer = null;
-
-    private InetAddress myIP;
-    private InetAddress peerIP;
 
 //    private Socket peerSocket;
 //    private Socket mySocket;
@@ -152,7 +159,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)));
 
         //String deviceIp = info.groupOwnerAddress.getHostAddress();
-        String httpUri = mServer.init(myIP.getHostAddress(), peerPrintStream);
+        String httpUri = mServer.init(myIP, peerPrintStream);
         if (null != mServer && !mServer.isRunning())
             mServer.start();
         Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
@@ -198,7 +205,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // After the group negotiation, we assign the group owner as the file
         // server. The file server is single threaded, single connection server
         // socket.
-
+        if(info.groupFormed&&info!=null)
+            exchangeIP();
         if (info.groupFormed) {
 
             new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerSocket)
@@ -355,5 +363,72 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
         return true;
     }
+    private Handler handle = new Handler(){
+        @Override
+        public void handleMessage(Message msg){
+            switch(msg.what){
+                case 0: if (progressDialog != null && progressDialog.isShowing()) {
+                    progressDialog.dismiss();
+                }
 
+                    break;
+
+            }
+        }
+    };
+    public void exchangeIP(){
+        OutputStream outputStream = null;
+        InputStream inputStream = null;
+        Log.d(WiFiDirectActivity.TAG,"exchange?");
+        new Thread() {
+            @Override
+            public void run() {
+                Socket socket = null;
+                if (info.isGroupOwner) {
+                    try {
+                        ServerSocket serverSocket = new ServerSocket(9000);
+                        Log.d(WiFiDirectActivity.TAG, "My IP" + info.groupOwnerAddress.getHostAddress());
+                        socket = serverSocket.accept();
+                        peersocket = socket;
+                        Log.d(WiFiDirectActivity.TAG, "exServer: connection done");
+                        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                        writer.write(socket.getRemoteSocketAddress().toString());
+                        String line = socket.getRemoteSocketAddress().toString();
+                        Log.d(WiFiDirectActivity.TAG, "Peer IP addr: " + line);
+                        myIP = info.groupOwnerAddress.getHostAddress();
+                        peerIP = line.substring(1, line.indexOf(':'));
+                        writer.close();
+                        //socket.close();
+                        Log.d(WiFiDirectActivity.TAG, myIP + peerIP);
+                    } catch (IOException e) {
+                        Log.e(WiFiDirectActivity.TAG, e.getMessage());
+                        return;
+                    }
+                    handle.sendEmptyMessage(0);
+                } else {
+                    try {
+                        Thread.sleep(500);
+                        socket = new Socket();
+                        Log.d(WiFiDirectActivity.TAG, "Opening control socket - ");
+                        socket.bind(null);
+                        peersocket = socket;
+                        socket.connect((new InetSocketAddress(info.groupOwnerAddress.getHostAddress(), 9000)), 5000);
+                        Log.d(WiFiDirectActivity.TAG, info.groupOwnerAddress.getHostAddress());
+                        Log.d(WiFiDirectActivity.TAG, "Connection control socket ");
+                        BufferedReader bff = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                        String line = bff.readLine();
+                        myIP = line.substring(1,line.indexOf(':'));
+                        peerIP = info.groupOwnerAddress.getHostAddress();
+                        bff.close();
+                        Log.d(WiFiDirectActivity.TAG, myIP + peerIP);
+                    } catch (InterruptedException e) {
+                        Log.e(WiFiDirectActivity.TAG, e.getMessage());
+                    } catch (Exception e) {
+                        Log.e(WiFiDirectActivity.TAG, e.getMessage());
+                    }
+                    handle.sendEmptyMessage(0);
+                }
+            }
+        }.start();
+    }
 }
