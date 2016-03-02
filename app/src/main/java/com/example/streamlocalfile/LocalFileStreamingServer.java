@@ -31,14 +31,12 @@ import android.content.Context;
  */
 public class LocalFileStreamingServer implements Runnable {
 	public static final String TAG = LocalFileStreamingServer.class.getName();
+
 	private int port = 0;
 	private boolean isRunning = false;
 	private ServerSocket socket;
 	private Thread thread;
-	private long cbSkip;
-	private boolean seekRequest;
 	private File mMovieFile;
-	//private Socket peerSocket;
 	private BufferedWriter peerWriter;
 
 	/**
@@ -46,14 +44,6 @@ public class LocalFileStreamingServer implements Runnable {
 	 */
 	public LocalFileStreamingServer(File file) {
 		mMovieFile = file;
-
-	}
-
-	/**
-	 * @return A port number assigned by the OS.
-	 */
-	public int getPort() {
-		return port;
 	}
 
 	/**
@@ -63,7 +53,7 @@ public class LocalFileStreamingServer implements Runnable {
 	 * server can be started and stopped as needed.
 	 */
 
-	public void sendURL()
+	public void notifyClient()
 	{
 		try{
 			//send IP and port# to peer
@@ -71,13 +61,12 @@ public class LocalFileStreamingServer implements Runnable {
 					+ socket.getLocalPort();
 			peerWriter.write(url + "\n");
 			peerWriter.flush();
-			Log.e(TAG, "HTTP Server URL sent: " + url);
+			Log.e(TAG, "Notified client of HTTP Server URL: " + url);
 		}
 		catch (IOException e)
 		{
 			Log.e(TAG, e.getMessage());
 		}
-
 	}
 
 	public String init(String ip, BufferedWriter peerWriter) {
@@ -152,296 +141,341 @@ public class LocalFileStreamingServer implements Runnable {
 	 */
 	@Override
 	public void run() {
-		Log.e(TAG, "running");
-		sendURL();
+		Log.e(TAG, "HTTP Server running");
+		notifyClient();
 		while (isRunning) {
 			try {
 				Socket client = socket.accept();
 				if (client == null) {
+					Log.e(TAG, "Invalid (null) client socket.");
 					continue;
 				}
-				Log.e(TAG, "client connected at " + port);
-				ExternalResourceDataSource data = new ExternalResourceDataSource(
-						mMovieFile);
-				Log.e(TAG, "processing request...");
-				processRequest(data, client);
+				Log.e(TAG, "Client connected at " + port);
+
+				ExternalResourceDataSource dataSource = new ExternalResourceDataSource(mMovieFile);
+				if (dataSource == null) {
+					Log.e(TAG, "Invalid (null) resource.");
+					client.close();
+					continue;
+				}
+				new FileStreamingSession(client, dataSource);
+
 			} catch (SocketTimeoutException e) {
-				Log.e(TAG, "No client connected, waiting for client...", e);
-				// Do nothing
+				Log.e(TAG, "Waiting for client...");
 			} catch (IOException e) {
 				Log.e(TAG, "Error connecting to client", e);
-				// break;
 			}
 		}
 		Log.e(TAG, "Server interrupted or stopped. Shutting down.");
 	}
 
-	/**
-	 * Find byte index separating header from body. It must be the last byte of
-	 * the first two sequential new lines.
-	 **/
-	private int findHeaderEnd(final byte[] buf, int rlen) {
-		int splitbyte = 0;
-		while (splitbyte + 3 < rlen) {
-			if (buf[splitbyte] == '\r' && buf[splitbyte + 1] == '\n'
-					&& buf[splitbyte + 2] == '\r' && buf[splitbyte + 3] == '\n')
-				return splitbyte + 4;
-			splitbyte++;
-		}
-		return 0;
-	}
+	private class FileStreamingSession implements Runnable{
 
-	/*
+		private Socket client;
+		private ExternalResourceDataSource dataSource;
+
+		FileStreamingSession(Socket client, ExternalResourceDataSource dataSource){
+			Log.d(TAG, "New FileStreamingSession created");
+
+			this.client = client;
+			this.dataSource = dataSource;
+
+			Thread t = new Thread(this, "FileStreamingSession");
+			t.setDaemon(true);
+			t.start();
+
+		}
+		@Override
+		public void run(){
+			try{
+				processRequest();
+			} catch (IOException e) {
+				Log.e(TAG, "Error read from client", e);
+			} finally {
+				try{
+					client.close();
+				}
+				catch (IOException e)
+				{
+					Log.d(TAG, "Error in closing client socket");
+				}
+			}
+		}
+		/*
 	 * Sends the HTTP response to the client, including headers (as applicable)
 	 * and content.
 	 */
-	private void processRequest(ExternalResourceDataSource dataSource,
-			Socket client) throws IllegalStateException, IOException {
-		if (dataSource == null) {
-			Log.e(TAG, "Invalid (null) resource.");
-			client.close();
-			return;
-		}
-		InputStream is = client.getInputStream();
-		final int bufsize = 8192;
-		byte[] buf = new byte[bufsize];
-		int splitbyte = 0;
-		int rlen = 0;
-		{
-			int read = is.read(buf, 0, bufsize);
-			while (read > 0) {
+		private void processRequest() throws IllegalStateException, IOException {
+
+			InputStream is = client.getInputStream();
+			final int BUFFER_SIZE = 8192;
+			byte[] buf = new byte[BUFFER_SIZE];
+
+			int rlen = 0;
+			int splitbyte = 0;
+			long cbSkip = 0;
+			int read;
+
+			boolean seekRequest = false;
+
+			// Read request header
+			while ((read = is.read(buf, rlen, buf.length - rlen)) > 0) {
 				rlen += read;
 				splitbyte = findHeaderEnd(buf, rlen);
 				if (splitbyte > 0)
 					break;
-				read = is.read(buf, rlen, bufsize - rlen);
 			}
-		}
 
-		// Create a BufferedReader for parsing the header.
-		ByteArrayInputStream hbis = new ByteArrayInputStream(buf, 0, rlen);
-		BufferedReader hin = new BufferedReader(new InputStreamReader(hbis));
-		Properties pre = new Properties();
-		Properties parms = new Properties();
-		Properties header = new Properties();
+			// Create a BufferedReader for parsing the header.
+			BufferedReader hin = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(buf, 0, rlen)));
+			Properties pre = new Properties();
+			Properties parms = new Properties();
+			Properties header = new Properties();
 
-		try {
-			decodeHeader(hin, pre, parms, header);
-		} catch (InterruptedException e1) {
-			Log.e(TAG, "Exception: " + e1.getMessage());
-			e1.printStackTrace();
-		}
-		for (Entry<Object, Object> e : header.entrySet()) {
-			Log.e(TAG, "Header: " + e.getKey() + " : " + e.getValue());
-		}
-		String range = header.getProperty("range");
-		cbSkip = 0;
-		seekRequest = false;
-		if (range != null) {
-			Log.e(TAG, "range is: " + range);
-			seekRequest = true;
-			range = range.substring(6);
-			int charPos = range.indexOf('-');
-			if (charPos > 0) {
-				range = range.substring(0, charPos);
+			try {
+				decodeHeader(hin, pre, parms, header);
+			} catch (InterruptedException e) {
+				Log.e(TAG, "Exception: " + e.getMessage());
+				e.printStackTrace();
 			}
-			cbSkip = Long.parseLong(range);
-			Log.e(TAG, "range found!! " + cbSkip);
+
+			for (Entry<Object, Object> e : header.entrySet()) {
+				Log.e(TAG, "Request Header: " + e.getKey() + " : " + e.getValue());
+			}
+
+			// Determine cbSkip
+			String range = header.getProperty("range");
+			if (range != null) {
+
+				seekRequest = true;
+				Log.e(TAG, "Seek range is: " + range);
+				range = range.substring(6);
+				int charPos = range.indexOf('-');
+				if (charPos > 0) {
+					range = range.substring(0, charPos);
+				}
+				cbSkip = Long.parseLong(range);
+				Log.e(TAG, "Seek range found!");
+			}
+
+			String headers = "";
+			if (seekRequest) {// It is a seek or skip request if there's a Range
+				// header
+				headers += "HTTP/1.1 206 Partial Content\r\n";
+				headers += "Content-Type: " + dataSource.getContentType() + "\r\n";
+				headers += "Accept-Ranges: bytes\r\n";
+				headers += "Content-Length: " + dataSource.getContentLength(false)
+						+ "\r\n";
+				headers += "Content-Range: bytes " + cbSkip + "-"
+						+ dataSource.getContentLength(true) + "/*\r\n";
+				headers += "\r\n";
+			} else {
+				headers += "HTTP/1.1 200 OK\r\n";
+				headers += "Content-Type: " + dataSource.getContentType() + "\r\n";
+				headers += "Accept-Ranges: bytes\r\n";
+				headers += "Content-Length: " + dataSource.getContentLength(false)
+						+ "\r\n";
+				headers += "\r\n";
+			}
+
+			InputStream data = null;
+			try {
+				// Send header
+				Log.e(TAG, "Sending Header to client");
+				byte[] buffer = headers.getBytes();
+				client.getOutputStream().write(buffer, 0, buffer.length);
+				Log.e(TAG, "Response Header: " + headers);
+
+				// Send content
+				Log.e(TAG, "Sending Content to client");
+				byte[] buff = new byte[1024 * 50];
+				data = dataSource.createInputStream();
+
+				Log.e(TAG, "No of bytes skipped: " + cbSkip);
+				int cbSentThisBatch = 0;
+				int cbRead;
+				data.skip(cbSkip);
+				while ((cbRead = data.read(buff, 0, buff.length)) != -1)
+				{
+					client.getOutputStream().write(buff, 0, cbRead);
+					client.getOutputStream().flush();
+					cbSentThisBatch += cbRead;
+				}
+				Log.d(TAG, "cbSentThisBatch: " + cbSentThisBatch);
+
+//					Log.e(TAG, "No of bytes skipped: " + data.skip(cbSkip));
+//					int cbSentThisBatch = 0;
+//					while (isRunning) {
+//						int cbRead = data.read(buff, 0, buff.length);
+//
+//						// End of stream reached
+//						if (cbRead == -1) {
+//							Log.e(TAG,
+//									"readybytes are -1 and this is simulate streaming, close the ips and create another");
+//							data.close();
+//							data = dataSource.createInputStream();
+//							cbRead = data.read(buff, 0, buff.length);
+//							if (cbRead == -1) {
+//								Log.e(TAG, "error in reading bytess**********");
+//								throw new IOException(
+//										"Error re-opening data source for looping.");
+//							}
+//						}
+//						client.getOutputStream().write(buff, 0, cbRead);
+//						client.getOutputStream().flush();
+//						cbSkip += cbRead;
+//						cbSentThisBatch += cbRead;
+//
+//					}
+//					Log.e(TAG, "cbSentThisBatch: " + cbSentThisBatch);
+
+			} catch (SocketException e) {
+				// Ignore when the client breaks connection
+				Log.e(TAG, "Ignoring " + e.getMessage());
+			} catch (IOException e) {
+				Log.e(TAG, "Error getting content stream.", e);
+			} catch (Exception e) {
+				Log.e(TAG, "Error streaming file content.", e);
+			}
+
 		}
-		String headers = "";
-		// Log.e(TAG, "is seek request: " + seekRequest);
-		if (seekRequest) {// It is a seek or skip request if there's a Range
-			// header
-			headers += "HTTP/1.1 206 Partial Content\r\n";
-			headers += "Content-Type: " + dataSource.getContentType() + "\r\n";
-			headers += "Accept-Ranges: bytes\r\n";
-			headers += "Content-Length: " + dataSource.getContentLength(false)
-					+ "\r\n";
-			headers += "Content-Range: bytes " + cbSkip + "-"
-					+ dataSource.getContentLength(true) + "/*\r\n";
-			headers += "\r\n";
-		} else {
-			headers += "HTTP/1.1 200 OK\r\n";
-			headers += "Content-Type: " + dataSource.getContentType() + "\r\n";
-			headers += "Accept-Ranges: bytes\r\n";
-			headers += "Content-Length: " + dataSource.getContentLength(false)
-					+ "\r\n";
-			headers += "\r\n";
+		/**
+		 * Find byte index separating header from body. It must be the last byte of
+		 * the first two sequential new lines.
+		 **/
+		private int findHeaderEnd(final byte[] buf, int rlen) {
+			int splitbyte = 0;
+			while (splitbyte + 3 < rlen) {
+				if (buf[splitbyte] == '\r' && buf[splitbyte + 1] == '\n'
+						&& buf[splitbyte + 2] == '\r' && buf[splitbyte + 3] == '\n')
+					return splitbyte + 4;
+				splitbyte++;
+			}
+			return 0;
 		}
 
-		InputStream data = null;
-		try {
-			data = dataSource.createInputStream();
-			byte[] buffer = headers.getBytes();
-			Log.e(TAG, "writing to client");
-			Log.e(TAG, headers);
-			client.getOutputStream().write(buffer, 0, buffer.length);
-
-			// Start sending content.
-
-			byte[] buff = new byte[1024 * 50];
-			Log.e(TAG, "No of bytes skipped: " + data.skip(cbSkip));
-			int cbSentThisBatch = 0;
-			while (isRunning) {
-				int cbRead = data.read(buff, 0, buff.length);
-				if (cbRead == -1) {
+		/**
+		 * Decodes the sent headers and loads the data into java Properties' key -
+		 * value pairs
+		 **/
+		private void decodeHeader(BufferedReader in, Properties pre,
+								  Properties parms, Properties header) throws InterruptedException {
+			try {
+				// Read the request line
+				String inLine = in.readLine();
+				if (inLine == null)
+					return;
+				StringTokenizer st = new StringTokenizer(inLine);
+				if (!st.hasMoreTokens())
 					Log.e(TAG,
-							"readybytes are -1 and this is simulate streaming, close the ips and crate anotber  ");
-					data.close();
-					data = dataSource.createInputStream();
-					cbRead = data.read(buff, 0, buff.length);
-					if (cbRead == -1) {
-						Log.e(TAG, "error in reading bytess**********");
-						throw new IOException(
-								"Error re-opening data source for looping.");
+							"BAD REQUEST: Syntax error. Usage: GET /example/file.html");
+
+				String method = st.nextToken();
+				pre.put("method", method);
+
+				if (!st.hasMoreTokens())
+					Log.e(TAG,
+							"BAD REQUEST: Missing URI. Usage: GET /example/file.html");
+
+				String uri = st.nextToken();
+
+				// Decode parameters from the URI
+				int qmi = uri.indexOf('?');
+				if (qmi >= 0) {
+					decodeParms(uri.substring(qmi + 1), parms);
+					uri = decodePercent(uri.substring(0, qmi));
+				} else
+					uri = decodePercent(uri);
+
+				// If there's another token, it's protocol version,
+				// followed by HTTP headers. Ignore version but parse headers.
+				// NOTE: this now forces header names lowercase since they are
+				// case insensitive and vary by client.
+				if (st.hasMoreTokens()) {
+					String line = in.readLine();
+					while (line != null && line.trim().length() > 0) {
+						int p = line.indexOf(':');
+						if (p >= 0)
+							header.put(line.substring(0, p).trim().toLowerCase(),
+									line.substring(p + 1).trim());
+						line = in.readLine();
 					}
 				}
-				client.getOutputStream().write(buff, 0, cbRead);
-				client.getOutputStream().flush();
-				cbSkip += cbRead;
-				cbSentThisBatch += cbRead;
 
+				pre.put("uri", uri);
+			} catch (IOException ioe) {
+				Log.e(TAG,"SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
 			}
-			Log.e(TAG, "cbSentThisBatch: " + cbSentThisBatch);
-			// If we did nothing this batch, block for a second
-			if (cbSentThisBatch == 0) {
-				Log.e(TAG, "Blocking until more data appears");
-				Thread.sleep(1000);
-			}
-		} catch (SocketException e) {
-			// Ignore when the client breaks connection
-			Log.e(TAG, "Ignoring " + e.getMessage());
-		} catch (IOException e) {
-			Log.e(TAG, "Error getting content stream.", e);
-		} catch (Exception e) {
-			Log.e(TAG, "Error streaming file content.", e);
-		} finally {
-			if (data != null) {
-				data.close();
-			}
-			client.close();
 		}
-	}
 
-	/**
-	 * Decodes the sent headers and loads the data into java Properties' key -
-	 * value pairs
-	 **/
-	private void decodeHeader(BufferedReader in, Properties pre,
-			Properties parms, Properties header) throws InterruptedException {
-		try {
-			// Read the request line
-			String inLine = in.readLine();
-			if (inLine == null)
+		/**
+		 * Decodes parameters in percent-encoded URI-format ( e.g.
+		 * "name=Jack%20Daniels&pass=Single%20Malt" ) and adds them to given
+		 * Properties. NOTE: this doesn't support multiple identical keys due to the
+		 * simplicity of Properties -- if you need multiples, you might want to
+		 * replace the Properties with a Hashtable of Vectors or such.
+		 */
+		private void decodeParms(String parms, Properties p)
+				throws InterruptedException {
+			if (parms == null)
 				return;
-			StringTokenizer st = new StringTokenizer(inLine);
-			if (!st.hasMoreTokens())
-				Log.e(TAG,
-						"BAD REQUEST: Syntax error. Usage: GET /example/file.html");
 
-			String method = st.nextToken();
-			pre.put("method", method);
-
-			if (!st.hasMoreTokens())
-				Log.e(TAG,
-						"BAD REQUEST: Missing URI. Usage: GET /example/file.html");
-
-			String uri = st.nextToken();
-
-			// Decode parameters from the URI
-			int qmi = uri.indexOf('?');
-			if (qmi >= 0) {
-				decodeParms(uri.substring(qmi + 1), parms);
-				uri = decodePercent(uri.substring(0, qmi));
-			} else
-				uri = decodePercent(uri);
-
-			// If there's another token, it's protocol version,
-			// followed by HTTP headers. Ignore version but parse headers.
-			// NOTE: this now forces header names lowercase since they are
-			// case insensitive and vary by client.
-			if (st.hasMoreTokens()) {
-				String line = in.readLine();
-				while (line != null && line.trim().length() > 0) {
-					int p = line.indexOf(':');
-					if (p >= 0)
-						header.put(line.substring(0, p).trim().toLowerCase(),
-								line.substring(p + 1).trim());
-					line = in.readLine();
-				}
+			StringTokenizer st = new StringTokenizer(parms, "&");
+			while (st.hasMoreTokens()) {
+				String e = st.nextToken();
+				int sep = e.indexOf('=');
+				if (sep >= 0)
+					p.put(decodePercent(e.substring(0, sep)).trim(),
+							decodePercent(e.substring(sep + 1)));
 			}
-
-			pre.put("uri", uri);
-		} catch (IOException ioe) {
-			Log.e(TAG,
-					"SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
 		}
-	}
 
-	/**
-	 * Decodes parameters in percent-encoded URI-format ( e.g.
-	 * "name=Jack%20Daniels&pass=Single%20Malt" ) and adds them to given
-	 * Properties. NOTE: this doesn't support multiple identical keys due to the
-	 * simplicity of Properties -- if you need multiples, you might want to
-	 * replace the Properties with a Hashtable of Vectors or such.
-	 */
-	private void decodeParms(String parms, Properties p)
-			throws InterruptedException {
-		if (parms == null)
-			return;
-
-		StringTokenizer st = new StringTokenizer(parms, "&");
-		while (st.hasMoreTokens()) {
-			String e = st.nextToken();
-			int sep = e.indexOf('=');
-			if (sep >= 0)
-				p.put(decodePercent(e.substring(0, sep)).trim(),
-						decodePercent(e.substring(sep + 1)));
-		}
-	}
-
-	/**
-	 * Decodes the percent encoding scheme. <br/>
-	 * For example: "an+example%20string" -> "an example string"
-	 */
-	private String decodePercent(String str) throws InterruptedException {
-		try {
-			StringBuffer sb = new StringBuffer();
-			for (int i = 0; i < str.length(); i++) {
-				char c = str.charAt(i);
-				switch (c) {
-				case '+':
-					sb.append(' ');
-					break;
-				case '%':
-					sb.append((char) Integer.parseInt(
-							str.substring(i + 1, i + 3), 16));
-					i += 2;
-					break;
-				default:
-					sb.append(c);
-					break;
+		/**
+		 * Decodes the percent encoding scheme. <br/>
+		 * For example: "an+example%20string" -> "an example string"
+		 */
+		private String decodePercent(String str) throws InterruptedException {
+			try {
+				StringBuffer sb = new StringBuffer();
+				for (int i = 0; i < str.length(); i++) {
+					char c = str.charAt(i);
+					switch (c) {
+						case '+':
+							sb.append(' ');
+							break;
+						case '%':
+							sb.append((char) Integer.parseInt(
+									str.substring(i + 1, i + 3), 16));
+							i += 2;
+							break;
+						default:
+							sb.append(c);
+							break;
+					}
 				}
+				return sb.toString();
+			} catch (Exception e) {
+				Log.e(TAG, "BAD REQUEST: Bad percent-encoding.");
+				return null;
 			}
-			return sb.toString();
-		} catch (Exception e) {
-			Log.e(TAG, "BAD REQUEST: Bad percent-encoding.");
-			return null;
 		}
 	}
+
 
 	/**
 	 * provides meta-data and access to a stream for resources on SD card.
 	 */
 	protected class ExternalResourceDataSource {
 
-		private FileInputStream inputStream;
 		private final File movieResource;
 		long contentLength;
 
 		public ExternalResourceDataSource(File resource) {
 			movieResource = resource;
-			Log.e(TAG, "resourcePath is: " + mMovieFile.getPath());
+			contentLength = movieResource.length();
+			Log.e(TAG, "ExternalResourceDataSource created with " +
+					"Path: " + mMovieFile.getPath() + " " +
+					"Length: " + contentLength);
 		}
 
 		/**
@@ -451,8 +485,13 @@ public class LocalFileStreamingServer implements Runnable {
 		 * @return A MIME content type.
 		 */
 		public String getContentType() {
-			// TODO: Support other media if we need to
-			return "video/mp4";
+
+			String filePath = movieResource.getPath();
+			String fileExt = filePath.substring(filePath.lastIndexOf(".") + 1);
+			Log.d(TAG, "Content Type = video/" + fileExt);
+			return "video/" + fileExt;
+
+//			return "video/mp4";
 		}
 
 		/**
@@ -467,7 +506,12 @@ public class LocalFileStreamingServer implements Runnable {
 		public InputStream createInputStream() throws IOException {
 			// NB: Because createInputStream can only be called once per asset
 			// we always create a new file descriptor here.
-			getInputStream();
+			FileInputStream inputStream = null;
+			try {
+				inputStream = new FileInputStream(movieResource);
+			} catch (FileNotFoundException e) {
+				Log.e(TAG, "File Not Found Exception: " + e.getMessage());
+			}
 			return inputStream;
 		}
 
@@ -486,19 +530,6 @@ public class LocalFileStreamingServer implements Runnable {
 				return -1;
 			}
 			return contentLength;
-		}
-
-		private void getInputStream() {
-			try {
-				inputStream = new FileInputStream(movieResource);
-			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			// File temp = new File(respurcePath);
-			contentLength = movieResource.length();
-			Log.e(TAG, "file exists??" + movieResource.exists()
-					+ " and content length is: " + contentLength);
 		}
 
 	}

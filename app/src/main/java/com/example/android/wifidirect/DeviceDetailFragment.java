@@ -415,18 +415,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         Log.d(WiFiDirectActivity.TAG, "Exchange Completed: " +
                                 "myIP = " + myIP + ", peerIP = "  + peerIP);
 
-                        // Exchange completed
-                        handle.sendEmptyMessage(0);
-                        Log.d(WiFiDirectActivity.TAG, "Dialog dismissed");
 
-                        String url = peerReader.readLine();
-                        Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
-
-                        //Intent intent = new Intent(Intent.ACTION_VIEW);
-                        //intent.setDataAndType(Uri.parse(url), "video/*");
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        startActivity(intent);
-                        Log.d(WiFiDirectActivity.TAG, "Intent sent");
 
                     } catch (IOException e) {
                         Log.e(WiFiDirectActivity.TAG, e.getMessage());
@@ -457,17 +446,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         Log.d(WiFiDirectActivity.TAG, "Exchange Completed: " +
                                 "myIP = " + myIP + ", peerIP = " + peerIP);
 
-                        // Exchange completed
-                        handle.sendEmptyMessage(0);
-                        Log.d(WiFiDirectActivity.TAG, "Dialog dismissed");
 
-                        String url = peerReader.readLine();
-                        Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
-
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        //intent.setDataAndType(Uri.parse(url), "video/*");
-                        startActivity(intent);
-                        Log.d(WiFiDirectActivity.TAG, "Intent sent");
 
                     } catch (InterruptedException e) {
                         Log.e(WiFiDirectActivity.TAG, e.getMessage());
@@ -476,7 +455,26 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     }
 
                 }
+
+                try {
+                    // Exchange completed
+                    handle.sendEmptyMessage(0);
+                    Log.d(WiFiDirectActivity.TAG, "Dialog dismissed");
+
+                    String url = peerReader.readLine();
+                    Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
+
+                    //Intent intent = new Intent(Intent.ACTION_VIEW);
+                    //intent.setDataAndType(Uri.parse(url), "video/*");
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                    Log.d(WiFiDirectActivity.TAG, "Intent sent");
+                }
+                catch (Exception e) {
+                    Log.e(WiFiDirectActivity.TAG, "Error: " + e.getMessage());
+                }
             }
+
         }.start();
     }
 }
