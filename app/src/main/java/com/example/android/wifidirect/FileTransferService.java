@@ -99,7 +99,7 @@ public class FileTransferService extends IntentService {
 //                }
 
 
-                mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(Uri.parse(fileUri))));
+//                mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(Uri.parse(fileUri))));
 
                 String deviceIp = host;
 //                String httpUri = mServer.init(deviceIp);

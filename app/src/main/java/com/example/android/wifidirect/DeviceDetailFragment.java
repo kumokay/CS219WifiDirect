@@ -157,13 +157,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         //Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + uri);
 
         // Initiating and start LocalFileStreamingServer
-        mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)));
+        mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)), myIP, peerWriter);
 
         //String deviceIp = info.groupOwnerAddress.getHostAddress();
-        String httpUri = mServer.init(myIP, peerWriter);
+//        String httpUri = mServer.init(myIP, peerWriter);
         if (null != mServer && !mServer.isRunning())
             mServer.start();
-        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
+//        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
 
 
 //        Intent serviceIntent = new Intent(getActivity(), FileTransferService.class);

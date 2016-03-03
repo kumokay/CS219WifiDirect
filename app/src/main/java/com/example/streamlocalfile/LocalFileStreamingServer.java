@@ -42,8 +42,22 @@ public class LocalFileStreamingServer implements Runnable {
 	/**
 	 * This server accepts HTTP request and returns files from device.
 	 */
-	public LocalFileStreamingServer(File file) {
+	public LocalFileStreamingServer(File file, String ip, BufferedWriter peerWriter) {
 		mMovieFile = file;
+		this.peerWriter = peerWriter;
+
+		try {
+			InetAddress inet = InetAddress.getByName(ip);
+			byte[] bytes = inet.getAddress();
+			socket = new ServerSocket(0, 5, InetAddress.getByAddress(bytes));
+			socket.setSoTimeout(10000);
+			Log.d(TAG, "Server started at " + getFileUrl());
+
+		} catch (UnknownHostException e) {
+			Log.e(TAG, "Error UnknownHostException server", e);
+		} catch (IOException e) {
+			Log.e(TAG, "Error IOException server", e);
+		}
 	}
 
 	/**
@@ -57,11 +71,11 @@ public class LocalFileStreamingServer implements Runnable {
 	{
 		try{
 			//send IP and port# to peer
-			String url = "http://" + socket.getInetAddress().getHostAddress() + ":"
-					+ socket.getLocalPort();
-			peerWriter.write(url + "\n");
+//			String url = "http://" + socket.getInetAddress().getHostAddress() + ":"
+//					+ socket.getLocalPort();
+			peerWriter.write(getFileUrl() + "\n");
 			peerWriter.flush();
-			Log.e(TAG, "Notified client of HTTP Server URL: " + url);
+			Log.e(TAG, "Notified client of HTTP Server URL: " + getFileUrl());
 		}
 		catch (IOException e)
 		{
@@ -69,35 +83,28 @@ public class LocalFileStreamingServer implements Runnable {
 		}
 	}
 
-	public String init(String ip, BufferedWriter peerWriter) {
-		String url = null;
-		this.peerWriter = peerWriter;
-
-		try {
-			InetAddress inet = InetAddress.getByName(ip);
-			Log.e(TAG, "init with ip = " + ip);
-
-			byte[] bytes = inet.getAddress();
-			socket = new ServerSocket(port, 0, InetAddress.getByAddress(bytes));
-			Log.e(TAG, "init ServerSocket created");
-
-			socket.setSoTimeout(10000);
-			port = socket.getLocalPort();
-			url = "http://" + socket.getInetAddress().getHostAddress() + ":"
-					+ port;
-			Log.d(TAG, "Server started at " + url);
-
-		} catch (UnknownHostException e) {
-			Log.e(TAG, "Error UnknownHostException server", e);
-		} catch (IOException e) {
-			Log.e(TAG, "Error IOException server", e);
-		}
-		return url;
-	}
+//	public String init(String ip, BufferedWriter peerWriter) {
+//		this.peerWriter = peerWriter;
+//
+//		try {
+//			InetAddress inet = InetAddress.getByName(ip);
+//			Log.e(TAG, "init with ip = " + ip);
+//
+//			byte[] bytes = inet.getAddress();
+//			socket = new ServerSocket(0, 0, InetAddress.getByAddress(bytes));
+//			socket.setSoTimeout(10000);
+//			Log.d(TAG, "Server started at " + getFileUrl());
+//
+//		} catch (UnknownHostException e) {
+//			Log.e(TAG, "Error UnknownHostException server", e);
+//		} catch (IOException e) {
+//			Log.e(TAG, "Error IOException server", e);
+//		}
+//	}
 
 	public String getFileUrl() {
 		return "http://" + socket.getInetAddress().getHostAddress() + ":"
-				+ port + "/" + mMovieFile.getName();
+				+ socket.getLocalPort() + "/" + mMovieFile.getName();
 	}
 
 	/**
@@ -150,7 +157,7 @@ public class LocalFileStreamingServer implements Runnable {
 					Log.e(TAG, "Invalid (null) client socket.");
 					continue;
 				}
-				Log.e(TAG, "Client connected at " + port);
+				Log.e(TAG, "Client connected at " + socket.getLocalPort());
 
 				ExternalResourceDataSource dataSource = new ExternalResourceDataSource(mMovieFile);
 				if (dataSource == null) {
@@ -158,6 +165,7 @@ public class LocalFileStreamingServer implements Runnable {
 					client.close();
 					continue;
 				}
+
 				new FileStreamingSession(client, dataSource);
 
 			} catch (SocketTimeoutException e) {
@@ -202,9 +210,9 @@ public class LocalFileStreamingServer implements Runnable {
 			}
 		}
 		/*
-	 * Sends the HTTP response to the client, including headers (as applicable)
-	 * and content.
-	 */
+		 * Sends the HTTP response to the client, including headers (as applicable)
+		 * and content.
+		 */
 		private void processRequest() throws IllegalStateException, IOException {
 
 			InputStream is = client.getInputStream();
@@ -239,6 +247,12 @@ public class LocalFileStreamingServer implements Runnable {
 				e.printStackTrace();
 			}
 
+			for (Entry<Object, Object> e : pre.entrySet()) {
+				Log.e(TAG, "Request Header: " + e.getKey() + " : " + e.getValue());
+			}
+			for (Entry<Object, Object> e : parms.entrySet()) {
+				Log.e(TAG, "Request Header: " + e.getKey() + " : " + e.getValue());
+			}
 			for (Entry<Object, Object> e : header.entrySet()) {
 				Log.e(TAG, "Request Header: " + e.getKey() + " : " + e.getValue());
 			}
@@ -284,50 +298,23 @@ public class LocalFileStreamingServer implements Runnable {
 				Log.e(TAG, "Sending Header to client");
 				byte[] buffer = headers.getBytes();
 				client.getOutputStream().write(buffer, 0, buffer.length);
-				Log.e(TAG, "Response Header: " + headers);
+//				Log.e(TAG, "Response Header: " + headers);
 
-				// Send content
-				Log.e(TAG, "Sending Content to client");
-				byte[] buff = new byte[1024 * 50];
-				data = dataSource.createInputStream();
-
-				Log.e(TAG, "No of bytes skipped: " + cbSkip);
+				// Send content until the end of file
+				Log.e(TAG, "Sending Content to client: " + cbSkip + " bytes skipped");
 				int cbSentThisBatch = 0;
 				int cbRead;
+				data = dataSource.createInputStream();
 				data.skip(cbSkip);
+
+				byte[] buff = new byte[1024 * 50];
 				while ((cbRead = data.read(buff, 0, buff.length)) != -1)
 				{
 					client.getOutputStream().write(buff, 0, cbRead);
 					client.getOutputStream().flush();
 					cbSentThisBatch += cbRead;
 				}
-				Log.d(TAG, "cbSentThisBatch: " + cbSentThisBatch);
-
-//					Log.e(TAG, "No of bytes skipped: " + data.skip(cbSkip));
-//					int cbSentThisBatch = 0;
-//					while (isRunning) {
-//						int cbRead = data.read(buff, 0, buff.length);
-//
-//						// End of stream reached
-//						if (cbRead == -1) {
-//							Log.e(TAG,
-//									"readybytes are -1 and this is simulate streaming, close the ips and create another");
-//							data.close();
-//							data = dataSource.createInputStream();
-//							cbRead = data.read(buff, 0, buff.length);
-//							if (cbRead == -1) {
-//								Log.e(TAG, "error in reading bytess**********");
-//								throw new IOException(
-//										"Error re-opening data source for looping.");
-//							}
-//						}
-//						client.getOutputStream().write(buff, 0, cbRead);
-//						client.getOutputStream().flush();
-//						cbSkip += cbRead;
-//						cbSentThisBatch += cbRead;
-//
-//					}
-//					Log.e(TAG, "cbSentThisBatch: " + cbSentThisBatch);
+				Log.d(TAG, "Sending Content Complete: " + cbSentThisBatch + " byte sent");
 
 			} catch (SocketException e) {
 				// Ignore when the client breaks connection
@@ -367,15 +354,13 @@ public class LocalFileStreamingServer implements Runnable {
 					return;
 				StringTokenizer st = new StringTokenizer(inLine);
 				if (!st.hasMoreTokens())
-					Log.e(TAG,
-							"BAD REQUEST: Syntax error. Usage: GET /example/file.html");
+					Log.e(TAG, "BAD REQUEST: Syntax error. Usage: GET /example/file.html");
 
 				String method = st.nextToken();
 				pre.put("method", method);
 
 				if (!st.hasMoreTokens())
-					Log.e(TAG,
-							"BAD REQUEST: Missing URI. Usage: GET /example/file.html");
+					Log.e(TAG, "BAD REQUEST: Missing URI. Usage: GET /example/file.html");
 
 				String uri = st.nextToken();
 

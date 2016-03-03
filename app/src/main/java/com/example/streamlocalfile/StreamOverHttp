@@ -11,15 +11,21 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Properties;
 import java.util.StringTokenizer;
+import java.io.File;
+
+import android.util.Log;
 
 /**
  * This is simple HTTP local server for streaming InputStream to apps which are capable to read data from url.
  * Random access input stream is optionally supported, depending if file can be opened in this mode.
  */
 public class StreamOverHttp{
+
+    public static final String TAG = StreamOverHttp.class.getName();
+
     private static final boolean debug = false;
 
-    private final Browser.FileEntry file;
+    private final File file;
     //private final String fileMimeType;
 
     private final ServerSocket serverSocket;
@@ -33,7 +39,7 @@ public class StreamOverHttp{
             HTTP_416 = "416 Range not satisfiable",
             HTTP_INTERNALERROR = "500 Internal Server Error";
 
-    public StreamOverHttp(Browser.FileEntry f, String forceMimeType) throws IOException{
+    public StreamOverHttp(File f, String forceMimeType) throws IOException{
         file = f;
         //fileMimeType = forceMimeType!=null ? forceMimeType : file.mimeType;
         serverSocket = new ServerSocket(0);
@@ -63,7 +69,7 @@ public class StreamOverHttp{
 
         HttpSession(Socket s){
             socket = s;
-            BrowserUtils.LOGRUN("Stream over localhost: serving request on "+s.getInetAddress());
+            Log.d(TAG, "Stream over localhost: serving request on "+s.getInetAddress());
             Thread t = new Thread(this, "Http response");
             t.setDaemon(true);
             t.start();
