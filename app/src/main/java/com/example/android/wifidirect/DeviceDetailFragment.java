@@ -70,6 +70,7 @@ import com.example.streamlocalfile.LocalFileStreamingServer;
 public class DeviceDetailFragment extends Fragment implements ConnectionInfoListener {
 
     protected static final int CHOOSE_FILE_RESULT_CODE = 20;
+    protected static final int VIDEO_END_RESULT_CODE = 21;
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
@@ -150,21 +151,30 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
 
-        // User has picked an image.
-        Uri uri = data.getData();
-        TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
-        statusText.setText("Sending: " + uri);
-        //Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + uri);
+        switch(resultCode)
+        {
+            case VIDEO_END_RESULT_CODE:
+                // shutdown http server
+                break;
+            case CHOOSE_FILE_RESULT_CODE:
+                // User has picked an image.
+                Uri uri = data.getData();
+                TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
+                statusText.setText("Sending: " + uri);
+                //Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + uri);
 
-        // Initiating and start LocalFileStreamingServer
-        mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)), myIP, peerWriter);
+                // Initiating and start LocalFileStreamingServer
+                mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)), myIP, peerWriter);
 
-        //String deviceIp = info.groupOwnerAddress.getHostAddress();
-//        String httpUri = mServer.init(myIP, peerWriter);
-        if (null != mServer && !mServer.isRunning())
-            mServer.start();
-//        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
-
+                //String deviceIp = info.groupOwnerAddress.getHostAddress();
+    //        String httpUri = mServer.init(myIP, peerWriter);
+                if (null != mServer && !mServer.isRunning())
+                    mServer.start();
+    //        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
+                break;
+            default:
+                //do nothing
+        }
 
 //        Intent serviceIntent = new Intent(getActivity(), FileTransferService.class);
 //        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
@@ -469,6 +479,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
                     Log.d(WiFiDirectActivity.TAG, "Intent sent");
+
+                    Intent myIntent = new Intent(getActivity(), VideoViewActivity.class);
+                    startActivityForResult(myIntent, VIDEO_END_RESULT_CODE);
+
                 }
                 catch (Exception e) {
                     Log.e(WiFiDirectActivity.TAG, "Error: " + e.getMessage());
