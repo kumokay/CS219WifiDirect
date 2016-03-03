@@ -41,6 +41,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.VideoView;
 
 import com.example.android.wifidirect.DeviceListFragment.DeviceActionListener;
 import com.example.streamlocalfile.LocalFileStreamingServer;
@@ -476,12 +477,15 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                     //Intent intent = new Intent(Intent.ACTION_VIEW);
                     //intent.setDataAndType(Uri.parse(url), "video/*");
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
-                    Log.d(WiFiDirectActivity.TAG, "Intent sent");
+                    //Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    //startActivity(intent);
+                    //Log.d(WiFiDirectActivity.TAG, "Intent sent");
 
                     Intent myIntent = new Intent(getActivity(), VideoViewActivity.class);
+                    myIntent.putExtra(VideoViewActivity.VideoURL, url);
                     startActivityForResult(myIntent, VIDEO_END_RESULT_CODE);
+
+                    Log.d(WiFiDirectActivity.TAG, "playvideo");
 
                 }
                 catch (Exception e) {

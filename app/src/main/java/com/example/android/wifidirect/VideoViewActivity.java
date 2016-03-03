@@ -17,7 +17,7 @@ public class VideoViewActivity extends Activity {
     VideoView videoview;
 
     // Insert your Video URL
-    String VideoURL = "http://www.sample-videos.com/video/mp4/720/big_buck_bunny_720p_1mb.mp4";
+    public static final String VideoURL = "http://www.sample-videos.com/video/mp4/720/big_buck_bunny_720p_1mb.mp4";
 
     @Override
     public void finish() {
