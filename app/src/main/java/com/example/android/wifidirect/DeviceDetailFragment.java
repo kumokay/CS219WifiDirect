@@ -16,6 +16,7 @@
 
 package com.example.android.wifidirect;
 
+import android.app.AlertDialog;
 import android.app.Fragment;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -41,11 +42,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.VideoView;
+import android.widget.Toast;
 
 import com.example.android.wifidirect.DeviceListFragment.DeviceActionListener;
 import com.example.streamlocalfile.LocalFileStreamingServer;
-
+//import com.example.streamlocalfile.Controlpath;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
@@ -60,7 +61,10 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Scanner;
+import java.util.WeakHashMap;
 
 import com.example.streamlocalfile.LocalFileStreamingServer;
 
@@ -71,24 +75,23 @@ import com.example.streamlocalfile.LocalFileStreamingServer;
 public class DeviceDetailFragment extends Fragment implements ConnectionInfoListener {
 
     protected static final int CHOOSE_FILE_RESULT_CODE = 20;
-    protected static final int VIDEO_END_RESULT_CODE = 21;
+    private final int MSG_IP = 0;
+    private final int ACTIVE = 1;
+    private final int MSG_PORT = 2;
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
     private Socket peerSocket = null;
     private String myIP = null;
-    private String peerIP = null;
     private ProgressDialog progressDialog = null;
     private LocalFileStreamingServer mServer = null;
-
-//    private Socket peerSocket;
+    private Controlpath controlpath = null;
+    //    private Socket peerSocket;
 //    private Socket mySocket;
-    private InputStream peerIS;
-    private OutputStream peerOS;
+    private int listener = 0 ;
 //    private PrintStream peerPrintStream;
 //    private Scanner peerScanner;
-    private BufferedReader peerReader;
-    private BufferedWriter peerWriter;
+    //private boolean valid = false;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -120,7 +123,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                        }
                 );
                 ((DeviceActionListener) getActivity()).connect(config);
-
+                //valid = true;
             }
         });
 
@@ -130,6 +133,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     @Override
                     public void onClick(View v) {
                         ((DeviceActionListener) getActivity()).disconnect();
+                        mServer.stop();
+                        controlpath.stop();
                     }
                 });
 
@@ -145,6 +150,15 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         startActivityForResult(intent, CHOOSE_FILE_RESULT_CODE);
                     }
                 });
+        mContentView.findViewById(R.id.stop_server).setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v){
+                        controlpath.stop();
+                        mContentView.findViewById(R.id.stop_server).setVisibility(View.INVISIBLE);
+                    }
+                }
+        );
 
         return mContentView;
     }
@@ -152,30 +166,25 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
 
-        switch(resultCode)
-        {
-            case VIDEO_END_RESULT_CODE:
-                // shutdown http server
-                break;
-            case CHOOSE_FILE_RESULT_CODE:
-                // User has picked an image.
-                Uri uri = data.getData();
-                TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
-                statusText.setText("Sending: " + uri);
-                //Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + uri);
+        // User has picked an image.
+        Uri uri = data.getData();
+        TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
+        statusText.setText("Sending: " + uri);
+        Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + uri);
 
-                // Initiating and start LocalFileStreamingServer
-                mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)), myIP, peerWriter);
+        // Initiating and start LocalFileStreamingServer
+        mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)), myIP, controlpath);
+        //String deviceIp = info.groupOwnerAddress.getHostAddress();
+//        Log.d(WiFiDirectActivity.TAG,"Here is the Httpserver addr: "+httpUri);
+//        if(controlpath!=null) {
+//            controlpath.sendPort(httpUri);
+//            Log.d(WiFiDirectActivity.TAG,"sending url to client");
+//        }
+        if (null != mServer && !mServer.isRunning())
+            mServer.start();
+        mContentView.findViewById(R.id.stop_server).setVisibility(View.VISIBLE);
+//        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
 
-                //String deviceIp = info.groupOwnerAddress.getHostAddress();
-    //        String httpUri = mServer.init(myIP, peerWriter);
-                if (null != mServer && !mServer.isRunning())
-                    mServer.start();
-    //        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
-                break;
-            default:
-                //do nothing
-        }
 
 //        Intent serviceIntent = new Intent(getActivity(), FileTransferService.class);
 //        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
@@ -208,7 +217,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         TextView view = (TextView) mContentView.findViewById(R.id.group_owner);
         view.setText(getResources().getString(R.string.group_owner_text)
                 + ((info.isGroupOwner == true) ? getResources().getString(R.string.yes)
-                        : getResources().getString(R.string.no)));
+                : getResources().getString(R.string.no)));
 
         // InetAddress from WifiP2pInfo struct.
         view = (TextView) mContentView.findViewById(R.id.device_info);
@@ -218,13 +227,29 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // server. The file server is single threaded, single connection server
         // socket.
 
-        if (info.groupFormed && info!=null) {
-            exchangeIP();
-//            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerReader)
-//                    .execute();
-
-            if(info.isGroupOwner) {
-
+        if (info.groupFormed  ) {
+            //Log.d(WiFiDirectActivity.TAG,"start init");
+            if(controlpath==null) {
+                controlpath = new Controlpath(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
+                controlpath.start();
+            }
+            if(!info.isGroupOwner) {
+                /*
+                progressDialog.setTitle("Waiting for owner preparation");
+                progressDialog.setMessage("Loading...");
+                progressDialog.setCancelable(true);
+            final Handler timerhandler = new Handler();
+            Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (progressDialog != null && progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                    }
+                    controlpath.init();
+                    timerhandler.postDelayed(this,500);
+                }
+            }
+            */
             }else{
 
             }
@@ -246,7 +271,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
     /**
      * Updates the UI with device data
-     * 
+     *
      * @param device the device to be displayed
      */
     public void showDetails(WifiP2pDevice device) {
@@ -378,121 +403,297 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
         return true;
     }
-
     private Handler handle = new Handler(){
         @Override
         public void handleMessage(Message msg){
             switch(msg.what){
-                case 0:
-                    if (progressDialog != null && progressDialog.isShowing()) {
-                    progressDialog.dismiss();
-                    }
+                case MSG_IP:
+                    myIP = (String)msg.obj;
+                    Log.d(WiFiDirectActivity.TAG,"UI thread get from " + myIP);
                     break;
+
+                case ACTIVE:
+                    final String uri = (String)msg.obj;
+                    AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
+                    String test;
+                    dialog.setTitle(uri.substring(7)+"is sharing video");
+                    dialog.setMessage("Want to play it ?");
+                    dialog.setCancelable(false);
+                    dialog.setPositiveButton("Play", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+
+                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+                            //intent.setDataAndType(Uri.parse(url), "video/*");
+                            startActivity(intent);
+                        }
+                    });
+                    dialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog,int which){
+
+                        }
+                    });
+                    dialog.show();
+                    break;
+                case MSG_PORT:
+                    //Check http server is running or not, preventing fake msg;
+                    if(mServer!=null&&!mServer.isRunning()){
+                        listener++;
+                        Toast.makeText(getActivity(),listener +" received server address ",Toast.LENGTH_LONG).show();
+                    }
             }
 //            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerReader)
 //                    .execute();
         }
     };
-    public void exchangeIP(){
-//        OutputStream outputStream = null;
-//        InputStream inputStream = null;
-        Log.d(WiFiDirectActivity.TAG,"exchange?");
-        new Thread() {
-            @Override
-            public void run() {
-                Socket socket = null;
-                if (info.isGroupOwner) {
-                    //group owner
-                    try {
-                        ServerSocket serverSocket = new ServerSocket(9000);
-                        Log.d(WiFiDirectActivity.TAG, "My IP" + info.groupOwnerAddress.getHostAddress());
-                        socket = serverSocket.accept();
-                        peerSocket = socket;
-                        Log.d(WiFiDirectActivity.TAG, "exServer: connection done");
 
-                        //peerOS = socket.getOutputStream();
-                        peerWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                        //peerPrintStream = new PrintStream(peerOS);
-                        peerReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+    class Sendthread extends Thread {
 
-                        peerWriter.write(socket.getRemoteSocketAddress().toString()+"\n");
-                        peerWriter.flush();
-                        String line = socket.getRemoteSocketAddress().toString();
-                        Log.d(WiFiDirectActivity.TAG, "Peer IP addr: " + line);
-                        myIP = info.groupOwnerAddress.getHostAddress();
-                        peerIP = line.substring(1, line.indexOf(':'));
-                        //writer.close();
-                        //socket.close();
-                        Log.d(WiFiDirectActivity.TAG, "Exchange Completed: " +
-                                "myIP = " + myIP + ", peerIP = "  + peerIP);
+        private String IP = null;
+        private int port;
+        private String msg = null;
 
+        public Sendthread(String IP,String port,String msg){
+            this.IP = IP;
+            this.port = Integer.parseInt(port);
+            this.msg =msg;
+        }
+        public Sendthread(String IP, int port,String msg){
+            this.IP = IP;
+            this.port = port;
+            this.msg = msg;
+        }
 
-
-                    } catch (IOException e) {
-                        Log.e(WiFiDirectActivity.TAG, e.getMessage());
-                    }
-
-                } else {
-                    //peer
-                    try {
-                        Thread.sleep(500);
-                        socket = new Socket();
-                        Log.d(WiFiDirectActivity.TAG, "Opening control socket - ");
-                        socket.bind(null);
-                        peerSocket = socket;
-                        socket.connect((new InetSocketAddress(info.groupOwnerAddress.getHostAddress(), 9000)), 5000);
-                        Log.d(WiFiDirectActivity.TAG, info.groupOwnerAddress.getHostAddress());
-                        Log.d(WiFiDirectActivity.TAG, "Connection control socket");
-
-                        //peerIS = socket.getInputStream();
-                        peerReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                        //peerScanner = new Scanner(peerIS);
-                        peerWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-
-                        Log.d(WiFiDirectActivity.TAG, "Attempt to read line");
-                        String line = peerReader.readLine();
-                        myIP = line.substring(1, line.indexOf(':'));
-                        peerIP = info.groupOwnerAddress.getHostAddress();
-                        //bff.close();
-                        Log.d(WiFiDirectActivity.TAG, "Exchange Completed: " +
-                                "myIP = " + myIP + ", peerIP = " + peerIP);
+        @Override
+        public void run() {
+            BufferedWriter Writer;
+            BufferedReader Reader;
+            try {
+                //try {
+                //    Thread.sleep(400);
+                //}catch (InterruptedException e){
+                //    Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                //}
+                Socket socket = new Socket(IP, port);
+                Log.d(WiFiDirectActivity.TAG, "creating new socket " + IP + "/" + port);
+                socket.setSoTimeout(5000);
+                Reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                //peerScanner = new Scanner(peerIS);
+                Writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                Writer.write(msg + '\n');  //Greeting formate : Hello:(ID addr)
+                Writer.flush();
+                String reply = Reader.readLine();
+                int response = controlpath.ProcessRequest(reply,Writer);
+                Writer.close();
+                Reader.close();
+                socket.close();
+                if(response!=controlpath.OK)
+                    run();
+            }catch(IOException e){
+                Log.e(WiFiDirectActivity.TAG,e.getMessage());
+            }
+        }
+    }
 
 
+    public class Controlpath implements Runnable {
+        //public static final String TAG = Controlpath.class.getName();
+        private final static int HELLO = 0;
+        private final static int PORT = 1;
+        private final static int OK = 2;
+        private final static int OTHER = 3;
+        //public static boolean socketestablish = false;
+        private boolean isOwner;
+        private boolean isRunning = false;
+        private String OwnerIP = null;
+        private String myIP = null;
+        private Thread thread = null;
+        private HashSet<String> peerIP = new HashSet<String>();
 
-                    } catch (InterruptedException e) {
-                        Log.e(WiFiDirectActivity.TAG, e.getMessage());
-                    } catch (Exception e) {
-                        Log.e(WiFiDirectActivity.TAG, e.getMessage());
-                    }
+        //private BufferedReader peerReader = null;
+        //private BufferedWriter peerWriter = null;
+        //private String[] IPArray = null;
 
-                }
+        public Controlpath(boolean isOwner,String IP){
+            this.isOwner = isOwner;
+            OwnerIP = IP;
+        }
 
+        public void start(){
+            thread = new Thread(this);
+            thread.start();
+            isRunning = true;
+        }
+        public boolean isRunning(){return isRunning;}
+
+        public boolean init() throws IOException{
+            BufferedReader Reader;
+            BufferedWriter Writer;
+            Socket socket =null;
+            if (!isOwner) {
                 try {
-                    // Exchange completed
-                    handle.sendEmptyMessage(0);
-                    Log.d(WiFiDirectActivity.TAG, "Dialog dismissed");
-
-                    String url = peerReader.readLine();
-                    Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
-
-                    //Intent intent = new Intent(Intent.ACTION_VIEW);
-                    //intent.setDataAndType(Uri.parse(url), "video/*");
-                    //Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    //startActivity(intent);
-                    //Log.d(WiFiDirectActivity.TAG, "Intent sent");
-
-                    Intent myIntent = new Intent(getActivity(), VideoViewActivity.class);
-                    myIntent.putExtra(VideoViewActivity.VideoURL, url);
-                    startActivityForResult(myIntent, VIDEO_END_RESULT_CODE);
-
-                    Log.d(WiFiDirectActivity.TAG, "playvideo");
-
-                }
-                catch (Exception e) {
-                    Log.e(WiFiDirectActivity.TAG, "Error: " + e.getMessage());
+                    Log.d(WiFiDirectActivity.TAG, "enter init");
+                    Thread.sleep(400);
+                    socket = new Socket(OwnerIP, 9000);
+                    Log.d(WiFiDirectActivity.TAG, "Opening control socket - ");
+                    socket.setSoTimeout(5000);
+                    //socket.bind(null);
+                    //socket.connect((new InetSocketAddress(OwnerIP, 9000)), 5000);
+                    Log.d(WiFiDirectActivity.TAG, "Connection control socket");
+                    //peerIS = socket.getInputStream();
+                    Reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    //peerScanner = new Scanner(peerIS);
+                    Writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                    Writer.write("Hello:" + OwnerIP + '\n');  //Greeting formate : Hello:(ID addr)
+                    Writer.flush();
+                    String line = Reader.readLine();
+                    myIP = socket.getLocalAddress().toString().substring(1);
+                    Log.d(WiFiDirectActivity.TAG,line);
+                    Log.d(WiFiDirectActivity.TAG, "get from local method: " + myIP);
+                    Writer.close();
+                    Reader.close();
+                    socket.close();
+                    peerIP.add(OwnerIP);
+                } catch (InterruptedException e) {
+                    Log.e(WiFiDirectActivity.TAG, e.getMessage());
                 }
             }
+            else{
+                myIP = OwnerIP;
+            }
+            handle.obtainMessage(MSG_IP,myIP).sendToTarget();
+            return true;
+        }
+        @Override
+        public void run()  {
+            Log.d(WiFiDirectActivity.TAG, " controlling thread is running");
+            try {
+                this.init();
+            }catch (IOException e){
+                Log.d(WiFiDirectActivity.TAG,"Init failed, try again");
+                run();
+            }
+            try{
+                ServerSocket serverSocket = new ServerSocket(9000);
+                while(isRunning){
+                    Socket socket = serverSocket.accept();
+                    String connectIP = socket.getRemoteSocketAddress().toString();
+                    new Thread(new Listenthread(socket,connectIP)).start();
+                }
 
-        }.start();
+            }catch (IOException e){
+                Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                Log.d(WiFiDirectActivity.TAG,"accepting error");
+            }
+        }
+        public int ProcessRequest(String msg,BufferedWriter out){
+            if(msg.contains("Hello:")){
+                Log.d(WiFiDirectActivity.TAG,"IP notified");
+                return HELLO;
+            }
+            else if(msg.contains("PORT:")){
+                //get portnum from message;
+                String url = msg.substring(msg.indexOf("http://"));
+                Log.d(WiFiDirectActivity.TAG, url);
+                handle.obtainMessage(ACTIVE,url).sendToTarget();
+                try{
+                    out.write("PORT OK");
+                    Log.d(WiFiDirectActivity.TAG,"Reply to server");
+                    out.flush();
+                }catch (IOException e){
+                    Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                }
+                return OTHER;
+            }
+            else if(msg.contains("CUT:")){
+                Log.d(WiFiDirectActivity.TAG,"Server wanna shut down server");
+                //active cut thread , and notifies peer
+                return OTHER;
+            }
+            else if(msg.contains("GOODBYE:")){
+                Log.d(WiFiDirectActivity.TAG,"Client has play off");
+                //destroy server thread;
+                return OTHER;
+            }
+            else if(msg.contains("PORT OK")){
+                handle.obtainMessage(MSG_PORT,true).sendToTarget();
+                Log.d(WiFiDirectActivity.TAG,"has received PORT");
+                return OK;
+            }
+            return OTHER;
+        }
+
+        public void sendPort(String httpuri){
+
+            Log.d(WiFiDirectActivity.TAG,"Which part rise the issue");
+            for(Iterator it = peerIP.iterator();it.hasNext();)
+            {
+                Log.d(WiFiDirectActivity.TAG, httpuri);
+                Sendthread msendthread = new Sendthread(it.next().toString(), 9000,"PORT:"+httpuri);
+                msendthread.start();
+            }
+        }
+
+        public void sendGoodBye(){
+
+        }
+        public void stop() {
+            isRunning = false;
+            if (thread == null) {
+                Log.e(WiFiDirectActivity.TAG , "Server was stopped without being started.");
+                return;
+            }
+            Log.e(WiFiDirectActivity.TAG, "Stopping server.");
+            thread.interrupt();
+        }
+        public class Listenthread implements Runnable{
+            private Socket socket = null;
+            public boolean isRunning = false;
+            public String connectIP = null;
+
+            public Listenthread(Socket socket,String connectIP){
+                this.socket = socket;
+                this.connectIP = connectIP;
+            }
+
+
+            @Override
+            public void run(){
+                String content = null;
+                BufferedReader Reader;
+                BufferedWriter Writer;
+                try {
+                    //peerIS = socket.getInputStream();
+                    Reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    //peerScanner = new Scanner(peerIS);
+                    Writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                    String IP = socket.getRemoteSocketAddress().toString();
+                    IP = IP.substring(1,IP.indexOf(':'));
+                    Log.d(WiFiDirectActivity.TAG,IP);
+                    peerIP.add(IP);
+                    content = Reader.readLine();
+                    Log.d(WiFiDirectActivity.TAG,"Here is the msg: "+ content);
+                    int response = ProcessRequest(content,Writer);
+                    if(response == HELLO) {
+                        Log.d(WiFiDirectActivity.TAG,Integer.toString(response));
+                        Writer.write("Hello:" + IP + "\n");
+                        Log.d(WiFiDirectActivity.TAG,"Hello:" + IP + "\n");
+                        Writer.flush();
+                    }
+                    while(!socket.isClosed()) {
+                        Writer.close();
+                        Reader.close();
+                        socket.close();
+                        Log.d(WiFiDirectActivity.TAG,"socket closes");
+                    }
+
+                }catch (IOException e){
+                    Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                }
+            }
+        }
+
     }
+
 }

@@ -24,6 +24,9 @@ import java.util.Properties;
 import java.util.StringTokenizer;
 import android.content.ContentResolver;
 import android.content.Context;
+import com.example.android.wifidirect.DeviceDetailFragment.Controlpath;
+
+import com.example.android.wifidirect.DeviceDetailFragment;
 
 /**
  * A single-connection HTTP server that will respond to requests for files and
@@ -38,13 +41,14 @@ public class LocalFileStreamingServer implements Runnable {
 	private Thread thread;
 	private File mMovieFile;
 	private BufferedWriter peerWriter;
+	private Controlpath controlPath;
 
 	/**
 	 * This server accepts HTTP request and returns files from device.
 	 */
-	public LocalFileStreamingServer(File file, String ip, BufferedWriter peerWriter) {
+	public LocalFileStreamingServer(File file, String ip, Controlpath controlPath) {
 		mMovieFile = file;
-		this.peerWriter = peerWriter;
+		this.controlPath = controlPath;
 
 		try {
 			InetAddress inet = InetAddress.getByName(ip);
@@ -67,21 +71,21 @@ public class LocalFileStreamingServer implements Runnable {
 	 * server can be started and stopped as needed.
 	 */
 
-	public void notifyClient()
-	{
-		try{
-			//send IP and port# to peer
-//			String url = "http://" + socket.getInetAddress().getHostAddress() + ":"
-//					+ socket.getLocalPort();
-			peerWriter.write(getFileUrl() + "\n");
-			peerWriter.flush();
-			Log.e(TAG, "Notified client of HTTP Server URL: " + getFileUrl());
-		}
-		catch (IOException e)
-		{
-			Log.e(TAG, e.getMessage());
-		}
-	}
+//	public void notifyClient()
+//	{
+//		try{
+//			//send IP and port# to peer
+////			String url = "http://" + socket.getInetAddress().getHostAddress() + ":"
+////					+ socket.getLocalPort();
+//			peerWriter.write(getFileUrl() + "\n");
+//			peerWriter.flush();
+//			Log.e(TAG, "Notified client of HTTP Server URL: " + getFileUrl());
+//		}
+//		catch (IOException e)
+//		{
+//			Log.e(TAG, e.getMessage());
+//		}
+//	}
 
 //	public String init(String ip, BufferedWriter peerWriter) {
 //		this.peerWriter = peerWriter;
@@ -149,7 +153,8 @@ public class LocalFileStreamingServer implements Runnable {
 	@Override
 	public void run() {
 		Log.e(TAG, "HTTP Server running");
-		notifyClient();
+//		notifyClient();
+		controlPath.sendPort(getFileUrl());
 		while (isRunning) {
 			try {
 				Socket client = socket.accept();
