@@ -39,6 +39,7 @@ public class LocalFileStreamingServer implements Runnable {
 	private boolean isRunning = false;
 	private ServerSocket socket;
 	private Thread thread;
+	private ThreadGroup sessions;
 	private File mMovieFile;
 	private BufferedWriter peerWriter;
 	private Controlpath controlPath;
@@ -66,7 +67,7 @@ public class LocalFileStreamingServer implements Runnable {
 
 	/**
 	 * Prepare the server to start.
-	 * 
+	 *
 	 * This only needs to be called once per instance. Once initialized, the
 	 * server can be started and stopped as needed.
 	 */
@@ -115,14 +116,15 @@ public class LocalFileStreamingServer implements Runnable {
 	 * Start the server.
 	 */
 	public void start() {
-		thread = new Thread(this);
+
+		thread = new Thread(this, "HTTP Server Thread");
 		thread.start();
 		isRunning = true;
 	}
 
 	/**
 	 * Stop the server.
-	 * 
+	 *
 	 * This stops the thread listening to the port. It may take up to five
 	 * seconds to close the service and this call blocks until that occurs.
 	 */
@@ -132,14 +134,15 @@ public class LocalFileStreamingServer implements Runnable {
 			Log.e(TAG, "Server was stopped without being started.");
 			return;
 		}
-		Log.e(TAG, "Stopping server.");
+		Log.e(TAG, "Stopping HTTP server.");
 		thread.interrupt();
+		sessions.interrupt();
 	}
 
 	/**
 	 * Determines if the server is running (i.e. has been <code>start</code>ed
 	 * and has not been <code>stop</code>ed.
-	 * 
+	 *
 	 * @return <code>true</code> if the server is running, otherwise
 	 *         <code>false</code>
 	 */
@@ -153,8 +156,11 @@ public class LocalFileStreamingServer implements Runnable {
 	@Override
 	public void run() {
 		Log.e(TAG, "HTTP Server running");
-//		notifyClient();
+		sessions = new ThreadGroup("HTTP Server session threads");
+		ExternalResourceDataSource dataSource = new ExternalResourceDataSource(mMovieFile);
+		int sessionCount = 0;
 		controlPath.sendPort(getFileUrl());
+
 		while (isRunning) {
 			try {
 				Socket client = socket.accept();
@@ -164,14 +170,8 @@ public class LocalFileStreamingServer implements Runnable {
 				}
 				Log.e(TAG, "Client connected at " + socket.getLocalPort());
 
-				ExternalResourceDataSource dataSource = new ExternalResourceDataSource(mMovieFile);
-				if (dataSource == null) {
-					Log.e(TAG, "Invalid (null) resource.");
-					client.close();
-					continue;
-				}
-
-				new FileStreamingSession(client, dataSource);
+				FileStreamingSession session =  new FileStreamingSession(dataSource, client);
+				session.start(sessions, sessionCount++);
 
 			} catch (SocketTimeoutException e) {
 				Log.e(TAG, "Waiting for client...");
@@ -184,20 +184,38 @@ public class LocalFileStreamingServer implements Runnable {
 
 	private class FileStreamingSession implements Runnable{
 
-		private Socket client;
-		private ExternalResourceDataSource dataSource;
+		final private Socket client;
+		final private ExternalResourceDataSource dataSource;
+		private boolean isRunning;
 
-		FileStreamingSession(Socket client, ExternalResourceDataSource dataSource){
-			Log.d(TAG, "New FileStreamingSession created");
+		FileStreamingSession(ExternalResourceDataSource dataSource, Socket client){
 
 			this.client = client;
 			this.dataSource = dataSource;
+		}
 
-			Thread t = new Thread(this, "FileStreamingSession");
+		public void start(ThreadGroup sessions, int threadCount)
+		{
+			Log.d(TAG, "New HTTP Server session started");
+			isRunning = true;
+
+			String threadName = "HTTP Server session - " + threadCount;
+			Thread t = new Thread(sessions, this, threadName);
 			t.setDaemon(true);
 			t.start();
-
 		}
+
+		public void stop()
+		{
+			isRunning = false;
+//			if (sessions == null) {
+//				Log.e(TAG, "HTTP Server sessions were stopped without being started.");
+//				return;
+//			}
+			Log.e(TAG, "Stopping HTTP Server sessions");
+//			sessions.interrupt();
+		}
+
 		@Override
 		public void run(){
 			try{
@@ -221,6 +239,7 @@ public class LocalFileStreamingServer implements Runnable {
 		private void processRequest() throws IllegalStateException, IOException {
 
 			InputStream is = client.getInputStream();
+			Log.d(TAG, "Client InputStream valid");
 			final int BUFFER_SIZE = 8192;
 			byte[] buf = new byte[BUFFER_SIZE];
 
@@ -313,13 +332,17 @@ public class LocalFileStreamingServer implements Runnable {
 				data.skip(cbSkip);
 
 				byte[] buff = new byte[1024 * 50];
-				while ((cbRead = data.read(buff, 0, buff.length)) != -1)
+				while (!Thread.interrupted() && (cbRead = data.read(buff, 0, buff.length)) != -1)
 				{
 					client.getOutputStream().write(buff, 0, cbRead);
 					client.getOutputStream().flush();
+					Log.d(TAG, "Client InputStream valid");
 					cbSentThisBatch += cbRead;
 				}
-				Log.d(TAG, "Sending Content Complete: " + cbSentThisBatch + " byte sent");
+				if (Thread.interrupted())
+					Log.d(TAG, "HTTP Server session interrupted");
+				else
+					Log.d(TAG, "Sending Content Complete: " + cbSentThisBatch + " byte sent");
 
 			} catch (SocketException e) {
 				// Ignore when the client breaks connection
@@ -471,7 +494,7 @@ public class LocalFileStreamingServer implements Runnable {
 		/**
 		 * Returns a MIME-compatible content type (e.g. "text/html") for the
 		 * resource. This method must be implemented.
-		 * 
+		 *
 		 * @return A MIME content type.
 		 */
 		public String getContentType() {
@@ -487,7 +510,7 @@ public class LocalFileStreamingServer implements Runnable {
 		/**
 		 * Creates and opens an input stream that returns the contents of the
 		 * resource. This method must be implemented.
-		 * 
+		 *
 		 * @return An <code>InputStream</code> to access the resource.
 		 * @throws IOException
 		 *             If the implementing class produces an error when opening
@@ -507,12 +530,12 @@ public class LocalFileStreamingServer implements Runnable {
 
 		/**
 		 * Returns the length of resource in bytes.
-		 * 
+		 *
 		 * By default this returns -1, which causes no content-type header to be
 		 * sent to the client. This would make sense for a stream content of
 		 * unknown or undefined length. If your resource has a defined length
 		 * you should override this method and return that.
-		 * 
+		 *
 		 * @return The length of the resource in bytes.
 		 */
 		public long getContentLength(boolean ignoreSimulation) {

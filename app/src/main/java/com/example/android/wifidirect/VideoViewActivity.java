@@ -17,7 +17,7 @@ public class VideoViewActivity extends Activity {
     VideoView videoview;
 
     // Insert your Video URL
-    public static final String VideoURL = "http://www.sample-videos.com/video/mp4/720/big_buck_bunny_720p_1mb.mp4";
+    public String VideoURL;
 
     @Override
     public void finish() {
@@ -55,6 +55,8 @@ public class VideoViewActivity extends Activity {
             //Uri video = Uri.parse(VideoURL);
             videoview.setMediaController(mediacontroller);
             //videoview.setVideoURI(video);
+
+            VideoURL = getIntent().getData().toString();
             videoview.setVideoPath(VideoURL);
         } catch (Exception e) {
             Log.e("Error", e.getMessage());
