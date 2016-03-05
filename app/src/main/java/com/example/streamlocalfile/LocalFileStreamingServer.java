@@ -336,7 +336,7 @@ public class LocalFileStreamingServer implements Runnable {
 				{
 					client.getOutputStream().write(buff, 0, cbRead);
 					client.getOutputStream().flush();
-					Log.d(TAG, "Client InputStream valid");
+					Log.d(TAG, "Sent: " + cbRead + " Bytes\tCumulative: " + cbSentThisBatch + " Bytes");
 					cbSentThisBatch += cbRead;
 				}
 				if (Thread.interrupted())
