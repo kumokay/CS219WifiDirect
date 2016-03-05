@@ -424,7 +424,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                 case ACTIVE:
                     final String uri = (String)msg.obj;
-                    Pattern pattern = Pattern.compile("(http://|https://){1}[//w//.//-.:]+");
+//                    Pattern pattern = Pattern.compile("(http://|https://){1}[//w//.//-.:]+");
                     //String test = uri.;
                     AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
                     dialog.setTitle(uri.substring(7)+"is sharing video");
