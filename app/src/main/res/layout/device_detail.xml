@@ -36,7 +36,7 @@
                 android:id="@+id/stop_server"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Stop Sharing"
+                android:text="Stop"
                 android:visibility="gone" />
         </LinearLayout>
         <TextView
@@ -56,6 +56,12 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
     </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:id="@+id/resource_list"
+        android:orientation="vertical"
+        android:layout_height="37dp"
+        ></LinearLayout>
     <LinearLayout
         android:layout_width="match_parent"
         android:id="@+id/status_bar"
