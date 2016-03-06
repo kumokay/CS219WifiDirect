@@ -160,7 +160,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         mContentView.findViewById(R.id.stop_server).setOnClickListener(
                 new View.OnClickListener() {
                     @Override
-                    public void onClick(View v){
+                    public void onClick(View v) {
                         controlpath.stop();
                         mContentView.findViewById(R.id.stop_server).setVisibility(View.INVISIBLE);
                     }
@@ -172,10 +172,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-
+        Log.d(WiFiDirectActivity.TAG,"requestCode is "+Integer.toString(requestCode)+";resultCode is" + Integer.toString(resultCode));
         switch (requestCode) {
             case CHOOSE_FILE_RESULT_CODE:
-                Log.d(WiFiDirectActivity.TAG,Integer.toString(requestCode));
                 if(resultCode== Activity.RESULT_OK) {
                     Log.d(WiFiDirectActivity.TAG, "File chosen with result code = " + CHOOSE_FILE_RESULT_CODE);
                     // User has picked an image.
@@ -183,7 +182,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     server_file_uri = uri.toString();
                     String server_file_path = getRealPathFromURI(uri);
                     TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
-                    statusText.setText("Sending: " + server_file_path);
+                    //statusText.setText("Sending: " + server_file_path);
                     Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + server_file_path);
 
                     // Initiating and start LocalFileStreamingServer
@@ -200,8 +199,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 }
                 break;
             case PLAY_VIDEO_RESULT_CODE:
-                Log.d(WiFiDirectActivity.TAG, "Video play terminated with result code = " + PLAY_VIDEO_RESULT_CODE);
-                controlpath.sendGoodBye();
+                if(resultCode==Activity.RESULT_CANCELED) {
+                    Log.d(WiFiDirectActivity.TAG, "Video play terminated with result code = " + Integer.toString(requestCode));
+                    controlpath.sendGoodBye();
+                }
                 break;
             default:
                 Log.d(WiFiDirectActivity.TAG, "unknown result code=" + resultCode);
@@ -509,9 +510,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     }
                     break;
                 case MSG_BYE:
-                    if(listener>0)
                     listener--;
-                    ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
+                    if(listener==0)
+                    {
+                        ((TextView) mContentView.findViewById(R.id.status_text)).setText("");
+                        ((TextView) mContentView.findViewById(R.id.stop_server)).setVisibility(View.GONE);
+                        if(mServer!=null)
+                            mServer.stop();
+                    }
+                    else
+                        ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
                 default:
                     Log.w(WiFiDirectActivity.TAG, "handleMessage: unexpected msg: " + msg.what);
             }
