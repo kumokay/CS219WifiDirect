@@ -162,7 +162,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     @Override
                     public void onClick(View v) {
                         controlpath.stop();
-                        mContentView.findViewById(R.id.stop_server).setVisibility(View.INVISIBLE);
+                        if (mServer != null) {
+                            Log.d(WiFiDirectActivity.TAG, "HTTP Server stopped without being declared");
+                            mServer.stop();
+                        }
+                        mContentView.findViewById(R.id.stop_server).setVisibility(View.GONE);
+                        ((TextView) mContentView.findViewById(R.id.btn_start_client)).setVisibility(View.VISIBLE);
+                        ((TextView) mContentView.findViewById(R.id.status_text)).setText("");
+                        listener = 0;
                     }
                 }
         );
@@ -178,10 +185,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 if(resultCode== Activity.RESULT_OK) {
                     Log.d(WiFiDirectActivity.TAG, "File chosen with result code = " + CHOOSE_FILE_RESULT_CODE);
                     // User has picked an image.
+                    listener = 0;
                     Uri uri = data.getData();
                     server_file_uri = uri.toString();
                     String server_file_path = getRealPathFromURI(uri);
-                    TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
+//                    TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
                     //statusText.setText("Sending: " + server_file_path);
                     Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + server_file_path);
 
@@ -196,6 +204,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     if (null != mServer && !mServer.isRunning())
                         mServer.start();
                     mContentView.findViewById(R.id.stop_server).setVisibility(View.VISIBLE);
+                    mContentView.findViewById(R.id.btn_start_client).setVisibility(View.GONE);
                 }
                 break;
             case PLAY_VIDEO_RESULT_CODE:
@@ -275,7 +284,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                    .getString(R.string.client_text));
 //        }
 
-        mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
+        if (mServer == null){
+            mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
+        }
         //hide the connect button
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
     }
@@ -511,12 +522,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     break;
                 case MSG_BYE:
                     listener--;
-                    if(listener==0)
+                    if(listener <= 0)
                     {
                         ((TextView) mContentView.findViewById(R.id.status_text)).setText("");
                         ((TextView) mContentView.findViewById(R.id.stop_server)).setVisibility(View.GONE);
+                        ((TextView) mContentView.findViewById(R.id.btn_start_client)).setVisibility(View.VISIBLE);
                         if(mServer!=null)
+                        {
                             mServer.stop();
+                            mServer = null;
+                        }
                     }
                     else
                         ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
