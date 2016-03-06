@@ -19,12 +19,8 @@ public class VideoViewActivity extends Activity {
     // Insert your Video URL
     public String VideoURL;
 
-    @Override
-    public void finish() {
-        Intent returnIntent = new Intent();
-        setResult(21, returnIntent);
-        super.finish();
-    }
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,7 +29,14 @@ public class VideoViewActivity extends Activity {
         setContentView(R.layout.videoview_main);
         // Find your VideoView in your video_main.xml layout
         videoview = (VideoView) findViewById(R.id.VideoView);
-        // Execute StreamVideo AsyncTask
+        videoview.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                Intent returnIntent = new Intent();
+                setResult(21, returnIntent);
+            }
+        });
 
         // Create a progressbar
         pDialog = new ProgressDialog(VideoViewActivity.this);
