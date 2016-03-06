@@ -177,13 +177,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 Log.d(WiFiDirectActivity.TAG, "File chosen with result code = " + CHOOSE_FILE_RESULT_CODE );
                 // User has picked an image.
                 Uri uri = data.getData();
-                server_file_uri = getRealPathFromURI(uri);
+                server_file_uri = uri.toString();
+                String server_file_path = getRealPathFromURI(uri);
                 TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
-                statusText.setText("Sending: " + uri);
-                Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + uri);
+                statusText.setText("Sending: " + server_file_path);
+                Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + server_file_path);
 
                 // Initiating and start LocalFileStreamingServer
-                mServer = new LocalFileStreamingServer(new File(server_file_uri), myIP, controlpath);
+                mServer = new LocalFileStreamingServer(new File(server_file_path), myIP, controlpath);
                 //String deviceIp = info.groupOwnerAddress.getHostAddress();
                 //        Log.d(WiFiDirectActivity.TAG,"Here is the Httpserver addr: "+httpUri);
                 //        if(controlpath!=null) {
@@ -466,10 +467,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                                 Log.d(WiFiDirectActivity.TAG, server_ip + "," + port_offset);
                                 controlpath.sendDonwloadRequest(server_ip, myIP, 9000 + port_offset);
                                 Log.d(WiFiDirectActivity.TAG, "Download data");
-                                FileServerAsyncTask task = new FileServerAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text));
+                                FileServerAsyncTask task = new FileServerAsyncTask(
+                                        getActivity(), mContentView.findViewById(R.id.status_text), 9000 + port_offset);
                                 task.execute();
-                                // request for data
-                                //// TODO
                             }
                         }
                     });
@@ -708,8 +708,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             else if(msg.contains("DOWNLOAD"))
             {
                 // send data ####### ADD IN CONTROL PATH
-                String peer_ip = msg.substring(msg.indexOf("192"), msg.indexOf(":"));
-                int peer_port = Integer.parseInt(msg.substring(msg.indexOf(":") + 1));
+                String peer_ip = msg.substring(msg.indexOf("192"), msg.indexOf(":",12));
+                int peer_port = Integer.parseInt(msg.substring(msg.indexOf(":",12) + 1));
 
                 Intent serviceIntent = new Intent(getActivity(), FileTransferService.class);
                 serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
@@ -718,6 +718,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, peer_ip);
                 serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, peer_port);
                 getActivity().startService(serviceIntent);
+                try{
+                    out.write("PORT OK");
+                    Log.d(WiFiDirectActivity.TAG,"Reply to server");
+                    out.flush();
+                }catch (IOException e){
+                    Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                }
             }
             return OTHER;
         }

@@ -22,19 +22,21 @@ public class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
 
     private Context context;
     private TextView statusText;
+    private int port;
 
     /**
      * @param context
      * @param statusText
      */
-    public FileServerAsyncTask(Context context, View statusText) {
+    public FileServerAsyncTask(Context context, View statusText, int port) {
         this.context = context;
         this.statusText = (TextView) statusText;
+        this.port = port;
     }
     @Override
     protected String doInBackground(Void... params) {
         try {
-            ServerSocket serverSocket = new ServerSocket(8988);
+            ServerSocket serverSocket = new ServerSocket(this.port);
             Log.d(WiFiDirectActivity.TAG, "Server: Socket opened");
             Socket client = serverSocket.accept();
             Log.d(WiFiDirectActivity.TAG, "Server: connection done");

@@ -60,7 +60,7 @@ public class FileTransferService extends IntentService {
             int port = intent.getExtras().getInt(EXTRAS_GROUP_OWNER_PORT);
 
             try {
-                /*
+
                 Log.d(WiFiDirectActivity.TAG, "Opening client socket - ");
                 socket.bind(null);
                 socket.connect((new InetSocketAddress(host, port)), SOCKET_TIMEOUT);
@@ -77,8 +77,8 @@ public class FileTransferService extends IntentService {
                 }
                 DeviceDetailFragment.copyFile(is, stream);
                 Log.d(WiFiDirectActivity.TAG, "Client: Data written");
-                */
-                Log.d(WiFiDirectActivity.TAG, "Intent (FileTransferService)----------- " + fileUri);
+
+                //Log.d(WiFiDirectActivity.TAG, "Intent (FileTransferService)----------- " + fileUri);
 
 
 //                try{
@@ -101,7 +101,7 @@ public class FileTransferService extends IntentService {
 
 //                mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(Uri.parse(fileUri))));
 
-                String deviceIp = host;
+                //String deviceIp = host;
 //                String httpUri = mServer.init(deviceIp);
 //                if (null != mServer && !mServer.isRunning())
 //                    mServer.start();
