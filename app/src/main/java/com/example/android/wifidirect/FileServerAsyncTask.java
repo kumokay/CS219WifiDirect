@@ -1,6 +1,8 @@
 package com.example.android.wifidirect;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Environment;
 import android.util.Log;
@@ -62,6 +64,17 @@ public class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
         } catch (IOException e) {
             Log.e(WiFiDirectActivity.TAG, e.getMessage());
             return null;
+        }
+    }
+
+
+    protected void onPostExecute(String result) {
+        if (result != null) {
+            statusText.setText("File copied - " + result);
+            Intent intent = new Intent();
+            intent.setAction(android.content.Intent.ACTION_VIEW);
+            intent.setDataAndType(Uri.parse("file://" + result), "video/*");
+            context.startActivity(intent);
         }
     }
 
