@@ -66,6 +66,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Scanner;
 import java.util.WeakHashMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.example.streamlocalfile.LocalFileStreamingServer;
@@ -81,7 +82,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private final int MSG_IP = 0;
     private final int ACTIVE = 1;
     private final int MSG_PORT = 2;
-    private final int SYN = 3;
+    private final int MSG_BYE = 3;
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
@@ -192,10 +193,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 if (null != mServer && !mServer.isRunning())
                     mServer.start();
                 mContentView.findViewById(R.id.stop_server).setVisibility(View.VISIBLE);
-                //        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
-
-
-
                 break;
             case PLAY_VIDEO_RESULT_CODE:
                 Log.d(WiFiDirectActivity.TAG, "Video play terminated with result code = " + PLAY_VIDEO_RESULT_CODE);
@@ -223,7 +220,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
         this.info = info;
         this.getView().setVisibility(View.VISIBLE);
-
+        //((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
         // The owner IP is now known.
         TextView view = (TextView) mContentView.findViewById(R.id.group_owner);
         view.setText(getResources().getString(R.string.group_owner_text)
@@ -274,8 +271,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //        }
 
         mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
-        ((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
-                .getString(R.string.client_text));
         //hide the connect button
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
     }
@@ -433,20 +428,20 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     CharSequence choice_list[]={ "Play", "Download"};
                     final ArrayList mSelectedItems = new ArrayList();
                     dialog.setMultiChoiceItems(choice_list, null,
-                        new DialogInterface.OnMultiChoiceClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which, boolean isChecked) {
-                                if (isChecked) {
-                                    // If the user checked the item, add it to the selected items
-                                    mSelectedItems.add(which);
-                                    Log.d(WiFiDirectActivity.TAG,"mSelectedItems.add: " + which);
+                            new DialogInterface.OnMultiChoiceClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which, boolean isChecked) {
+                                    if (isChecked) {
+                                        // If the user checked the item, add it to the selected items
+                                        mSelectedItems.add(which);
+                                        Log.d(WiFiDirectActivity.TAG,"mSelectedItems.add: " + which);
 
-                                } else if (mSelectedItems.contains(which)) {
-                                    // Else, if the item is already in the array, remove it
-                                    mSelectedItems.remove(Integer.valueOf(which));
+                                    } else if (mSelectedItems.contains(which)) {
+                                        // Else, if the item is already in the array, remove it
+                                        mSelectedItems.remove(Integer.valueOf(which));
+                                    }
                                 }
-                            }
-                        });
+                            });
                     dialog.setCancelable(false);
                     dialog.setPositiveButton("Play", new DialogInterface.OnClickListener() {
                         @Override
@@ -488,13 +483,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     break;
                 case MSG_PORT:
                     //Check http server is running or not, preventing fake msg;
-                    if(mServer!=null&&!mServer.isRunning()){
-                        listener++;
-                        Toast.makeText(getActivity(),listener +" received server address ",Toast.LENGTH_LONG).show();
+                    if(mServer!=null&&mServer.isRunning()){
+                        ++listener;
+                        ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
                     }
                     break;
+                case MSG_BYE:
+                    listener--;
+                    ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
                 default:
-                    Log.w(WiFiDirectActivity.TAG,"handleMessage: unexpected msg: " + msg.what);
+                    Log.w(WiFiDirectActivity.TAG, "handleMessage: unexpected msg: " + msg.what);
             }
 //            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerReader)
 //                    .execute();
@@ -645,21 +643,23 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             }
         }
         public int ProcessRequest(String msg,BufferedWriter out){
-            if(msg.contains("Hello:")){
+            if(msg.contains("Hello:")) {
                 Log.d(WiFiDirectActivity.TAG,"IP notified");
                 return HELLO;
             }
             else if(msg.contains("PORT:")){
                 //get portnum from message;
-                String url = msg.substring(msg.indexOf("http://"));
-                Log.d(WiFiDirectActivity.TAG, url);
-                handle.obtainMessage(ACTIVE,url).sendToTarget();
-                try{
-                    out.write("PORT OK");
-                    Log.d(WiFiDirectActivity.TAG,"Reply to server");
-                    out.flush();
-                }catch (IOException e){
-                    Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                if(mServer==null) {
+                    String url = msg.substring(msg.indexOf("http://"));
+                    Log.d(WiFiDirectActivity.TAG, url);
+                    handle.obtainMessage(ACTIVE, url).sendToTarget();
+                    try {
+                        out.write("PORT OK");
+                        Log.d(WiFiDirectActivity.TAG, "Reply to server");
+                        out.flush();
+                    } catch (IOException e) {
+                        Log.e(WiFiDirectActivity.TAG, e.getMessage());
+                    }
                 }
                 return OTHER;
             }
@@ -669,13 +669,20 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 return OTHER;
             }
             else if(msg.contains("GOODBYE:")){
-                Log.d(WiFiDirectActivity.TAG,"Client has play off");
-                //destroy server thread;
+                String cancelIP = msg.substring(msg.indexOf(':')+1);
+                try{
+                    out.write("PORT OK");
+                    Log.d(WiFiDirectActivity.TAG,cancelIP+"has played off");
+                    out.flush();
+                }catch (IOException e){
+                    Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                }
+                handle.sendEmptyMessage(MSG_BYE);
                 return OTHER;
             }
             else if(msg.contains("PORT OK")){
                 handle.obtainMessage(MSG_PORT,true).sendToTarget();
-                Log.d(WiFiDirectActivity.TAG,"has received PORT");
+                Log.d(WiFiDirectActivity.TAG,"OK");
                 return OK;
             }
             else if(msg.contains("SYN")){
@@ -734,13 +741,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             int time = 0;
             for(Iterator it = peerIP.iterator();it.hasNext();)
             {
-                //if(myIP==it.next().toString()){
-                //    Log.d(WiFiDirectActivity.TAG,"previous set is error");
-                //    continue;
-                //}
                 Sendthread msendthread = new Sendthread(it.next().toString(), 9000,"PORT:"+httpuri);
                 msendthread.start();
-                Log.d(WiFiDirectActivity.TAG, Integer.toString(time++));
             }
         }
         public void sendDonwloadRequest(String server_ip, String client_ip, int client_dl_port)
@@ -749,8 +751,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             Sendthread msendthread = new Sendthread(server_ip, 9000,"DOWNLOAD:"+client_ip+":"+client_dl_port);
             msendthread.start();
         }
-
         public void sendGoodBye(){
+            if(currentplayingIP!=null){
+                Sendthread msendthread = new Sendthread(currentplayingIP, 9000,"GOODBYE:"+myIP);
+                Log.d(WiFiDirectActivity.TAG, "GOODBYE"+myIP);
+                msendthread.start();
+                currentplayingIP = null;
+            }
 
         }
         public void stop() {
