@@ -136,6 +136,7 @@ public class LocalFileStreamingServer implements Runnable {
 		}
 		Log.e(TAG, "Stopping HTTP server.");
 		thread.interrupt();
+		Log.e(TAG, "Stopping HTTP server sessions.");
 		sessions.interrupt();
 	}
 
@@ -196,10 +197,9 @@ public class LocalFileStreamingServer implements Runnable {
 
 		public void start(ThreadGroup sessions, int threadCount)
 		{
-			Log.d(TAG, "New HTTP Server session started");
 			isRunning = true;
-
 			String threadName = "HTTP Server session - " + threadCount;
+			Log.d(TAG, "New " + threadName + " created");
 			Thread t = new Thread(sessions, this, threadName);
 			t.setDaemon(true);
 			t.start();
