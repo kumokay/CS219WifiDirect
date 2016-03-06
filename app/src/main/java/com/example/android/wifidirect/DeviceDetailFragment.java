@@ -81,7 +81,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private final int MSG_IP = 0;
     private final int ACTIVE = 1;
     private final int MSG_PORT = 2;
-    private final int SYN = 3;
+    private final int MSG_BYE = 3;
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
@@ -222,7 +222,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
         this.info = info;
         this.getView().setVisibility(View.VISIBLE);
-
+        //((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
         // The owner IP is now known.
         TextView view = (TextView) mContentView.findViewById(R.id.group_owner);
         view.setText(getResources().getString(R.string.group_owner_text)
@@ -421,47 +421,53 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     break;
 
                 case ACTIVE:
-                    final String uri = (String)msg.obj;
-                    Pattern pattern = Pattern.compile("(http://|https://){1}((\\d{1,3}\\.){3}\\d{1,3})(:\\d*)(/)");
-                    Matcher matcher =pattern.matcher(uri);
-                    final String receivedIP;
-                    if(matcher.find()){
-                        receivedIP = matcher.group(2);
-                        Log.d(WiFiDirectActivity.TAG,receivedIP);
-                        offerIP.add(receivedIP);
-                        AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
-                        dialog.setTitle(uri.substring(7)+"is sharing video");
-                        dialog.setMessage("Want to play it ?");
-                        dialog.setCancelable(false);
-                        dialog.setPositiveButton("Play", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                currentplayingIP = receivedIP;
-                                Intent intent = new Intent(getActivity().getApplicationContext(), VideoViewActivity.class);
-                                intent.setDataAndType(Uri.parse(uri), "video/*");
-                                startActivityForResult(intent, PLAY_VIDEO_RESULT_CODE);
-                            }
-                        });
-                        dialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog,int which){
+                    if(currentplayingIP==null) {
+                        final String uri = (String) msg.obj;
+                        Pattern pattern = Pattern.compile("(http://|https://){1}((\\d{1,3}\\.){3}\\d{1,3})(:\\d*)(/)");
+                        Matcher matcher = pattern.matcher(uri);
+                        final String receivedIP;
+                        if (matcher.find()) {
+                            receivedIP = matcher.group(2);
+                            Log.d(WiFiDirectActivity.TAG, receivedIP);
+                            offerIP.add(receivedIP);
+                            AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
+                            dialog.setTitle(uri.substring(7) + "is sharing video");
+                            dialog.setMessage("Want to play it ?");
+                            dialog.setCancelable(false);
+                            dialog.setPositiveButton("Play", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    currentplayingIP = receivedIP;
+                                    Intent intent = new Intent(getActivity().getApplicationContext(), VideoViewActivity.class);
+                                    intent.setDataAndType(Uri.parse(uri), "video/*");
+                                    startActivityForResult(intent, PLAY_VIDEO_RESULT_CODE);
+                                }
+                            });
+                            dialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
 
-                            }
-                        });
-                        dialog.show();
+                                }
+                            });
+                            dialog.show();
+                        } else {
+                            Log.d(WiFiDirectActivity.TAG, "no match");
+                        }
                     }
                     else{
-                        Log.d(WiFiDirectActivity.TAG,"no match");
+
                     }
                     break;
                 case MSG_PORT:
                     //Check http server is running or not, preventing fake msg;
-                    if(mServer!=null&&!mServer.isRunning()){
+                    if(mServer!=null&&mServer.isRunning()){
                         ++listener;
-                        Log.d(WiFiDirectActivity.TAG, Integer.toString(listener) + "received server address");
-                        ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + "received server address");
+                        ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
                     }
                     break;
+                case MSG_BYE:
+                    listener--;
+                    ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
             }
 //            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerReader)
 //                    .execute();
@@ -618,15 +624,17 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             }
             else if(msg.contains("PORT:")){
                 //get portnum from message;
-                String url = msg.substring(msg.indexOf("http://"));
-                Log.d(WiFiDirectActivity.TAG, url);
-                handle.obtainMessage(ACTIVE,url).sendToTarget();
-                try{
-                    out.write("PORT OK");
-                    Log.d(WiFiDirectActivity.TAG,"Reply to server");
-                    out.flush();
-                }catch (IOException e){
-                    Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                if(mServer==null) {
+                    String url = msg.substring(msg.indexOf("http://"));
+                    Log.d(WiFiDirectActivity.TAG, url);
+                    handle.obtainMessage(ACTIVE, url).sendToTarget();
+                    try {
+                        out.write("PORT OK");
+                        Log.d(WiFiDirectActivity.TAG, "Reply to server");
+                        out.flush();
+                    } catch (IOException e) {
+                        Log.e(WiFiDirectActivity.TAG, e.getMessage());
+                    }
                 }
                 return OTHER;
             }
@@ -644,11 +652,12 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 }catch (IOException e){
                     Log.e(WiFiDirectActivity.TAG,e.getMessage());
                 }
+                handle.sendEmptyMessage(MSG_BYE);
                 return OTHER;
             }
             else if(msg.contains("PORT OK")){
                 handle.obtainMessage(MSG_PORT,true).sendToTarget();
-                Log.d(WiFiDirectActivity.TAG,"has received PORT");
+                Log.d(WiFiDirectActivity.TAG,"OK");
                 return OK;
             }
             else if(msg.contains("SYN")){
