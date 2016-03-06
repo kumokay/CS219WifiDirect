@@ -138,6 +138,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         if (mServer != null) {
                             Log.d(WiFiDirectActivity.TAG, "HTTP Server stopped without being declared");
                             mServer.stop();
+                            mServer = null;
                         }
                         Log.d(WiFiDirectActivity.TAG, "HTTP Server Terminated");
                         controlpath.stop();
@@ -165,6 +166,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         if (mServer != null) {
                             Log.d(WiFiDirectActivity.TAG, "HTTP Server stopped without being declared");
                             mServer.stop();
+                            mServer = null;
                         }
                         mContentView.findViewById(R.id.stop_server).setVisibility(View.GONE);
                         ((TextView) mContentView.findViewById(R.id.btn_start_client)).setVisibility(View.VISIBLE);
