@@ -65,6 +65,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Scanner;
 import java.util.WeakHashMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.example.streamlocalfile.LocalFileStreamingServer;
@@ -174,8 +175,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 Log.d(WiFiDirectActivity.TAG, "File chosen with result code = " + CHOOSE_FILE_RESULT_CODE );
                 // User has picked an image.
                 Uri uri = data.getData();
-                TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
-                statusText.setText("Sending: " + uri);
                 Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + uri);
 
                 // Initiating and start LocalFileStreamingServer
@@ -189,6 +188,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 if (null != mServer && !mServer.isRunning())
                     mServer.start();
                 mContentView.findViewById(R.id.stop_server).setVisibility(View.VISIBLE);
+                break;
                 //        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
 
 
@@ -273,8 +273,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //        }
 
         mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
-        ((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
-                .getString(R.string.client_text));
         //hide the connect button
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
     }
@@ -424,34 +422,44 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                 case ACTIVE:
                     final String uri = (String)msg.obj;
-//                    Pattern pattern = Pattern.compile("(http://|https://){1}[//w//.//-.:]+");
-                    //String test = uri.;
-                    AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
-                    dialog.setTitle(uri.substring(7)+"is sharing video");
-                    dialog.setMessage("Want to play it ?");
-                    dialog.setCancelable(false);
-                    dialog.setPositiveButton("Play", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
+                    Pattern pattern = Pattern.compile("(http://|https://){1}((\\d{1,3}\\.){3}\\d{1,3})(:\\d*)(/)");
+                    Matcher matcher =pattern.matcher(uri);
+                    final String receivedIP;
+                    if(matcher.find()){
+                        receivedIP = matcher.group(2);
+                        Log.d(WiFiDirectActivity.TAG,receivedIP);
+                        offerIP.add(receivedIP);
+                        AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
+                        dialog.setTitle(uri.substring(7)+"is sharing video");
+                        dialog.setMessage("Want to play it ?");
+                        dialog.setCancelable(false);
+                        dialog.setPositiveButton("Play", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                currentplayingIP = receivedIP;
+                                Intent intent = new Intent(getActivity().getApplicationContext(), VideoViewActivity.class);
+                                intent.setDataAndType(Uri.parse(uri), "video/*");
+                                startActivityForResult(intent, PLAY_VIDEO_RESULT_CODE);
+                            }
+                        });
+                        dialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog,int which){
 
-                            Intent intent = new Intent(getActivity().getApplicationContext(), VideoViewActivity.class);
-                            intent.setDataAndType(Uri.parse(uri), "video/*");
-                            startActivityForResult(intent, PLAY_VIDEO_RESULT_CODE);
-                        }
-                    });
-                    dialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog,int which){
-
-                        }
-                    });
-                    dialog.show();
+                            }
+                        });
+                        dialog.show();
+                    }
+                    else{
+                        Log.d(WiFiDirectActivity.TAG,"no match");
+                    }
                     break;
                 case MSG_PORT:
                     //Check http server is running or not, preventing fake msg;
                     if(mServer!=null&&!mServer.isRunning()){
-                        listener++;
-                        Toast.makeText(getActivity(),listener +" received server address ",Toast.LENGTH_LONG).show();
+                        ++listener;
+                        Log.d(WiFiDirectActivity.TAG, Integer.toString(listener) + "received server address");
+                        ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + "received server address");
                     }
                     break;
             }
@@ -628,8 +636,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 return OTHER;
             }
             else if(msg.contains("GOODBYE:")){
-                Log.d(WiFiDirectActivity.TAG,"Client has play off");
-                //destroy server thread;
+                String cancelIP = msg.substring(msg.indexOf(':')+1);
+                try{
+                    out.write("PORT OK");
+                    Log.d(WiFiDirectActivity.TAG,cancelIP+"has played off");
+                    out.flush();
+                }catch (IOException e){
+                    Log.e(WiFiDirectActivity.TAG,e.getMessage());
+                }
                 return OTHER;
             }
             else if(msg.contains("PORT OK")){
@@ -679,17 +693,18 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             int time = 0;
             for(Iterator it = peerIP.iterator();it.hasNext();)
             {
-                //if(myIP==it.next().toString()){
-                //    Log.d(WiFiDirectActivity.TAG,"previous set is error");
-                //    continue;
-                //}
                 Sendthread msendthread = new Sendthread(it.next().toString(), 9000,"PORT:"+httpuri);
                 msendthread.start();
-                Log.d(WiFiDirectActivity.TAG,Integer.toString(time++));
             }
         }
 
         public void sendGoodBye(){
+            if(currentplayingIP!=null){
+                Sendthread msendthread = new Sendthread(currentplayingIP, 9000,"GOODBYE:"+myIP);
+                Log.d(WiFiDirectActivity.TAG, "GOODBYE"+myIP);
+                msendthread.start();
+                currentplayingIP = null;
+            }
 
         }
         public void stop() {
