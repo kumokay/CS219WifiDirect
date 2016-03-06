@@ -61,6 +61,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Scanner;
@@ -91,6 +92,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private LocalFileStreamingServer mServer = null;
     private Controlpath controlpath = null;
     private int listener = 0 ;
+    private String server_file_uri;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -174,12 +176,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 Log.d(WiFiDirectActivity.TAG, "File chosen with result code = " + CHOOSE_FILE_RESULT_CODE );
                 // User has picked an image.
                 Uri uri = data.getData();
+                server_file_uri = getRealPathFromURI(uri);
                 TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
                 statusText.setText("Sending: " + uri);
                 Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + uri);
 
                 // Initiating and start LocalFileStreamingServer
-                mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(uri)), myIP, controlpath);
+                mServer = new LocalFileStreamingServer(new File(server_file_uri), myIP, controlpath);
                 //String deviceIp = info.groupOwnerAddress.getHostAddress();
                 //        Log.d(WiFiDirectActivity.TAG,"Here is the Httpserver addr: "+httpUri);
                 //        if(controlpath!=null) {
@@ -192,16 +195,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 //        Log.d(WiFiDirectActivity.TAG, "Local File Streaming Server Initiated at" + httpUri);
 
 
-                //        Intent serviceIntent = new Intent(getActivity(), FileTransferService.class);
-                //        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
-                //        serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_PATH, uri.toString());
-                //        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS,
-                //                info.groupOwnerAddress.getHostAddress());
-                //        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, 8988);
-                //        getActivity().startService(serviceIntent);
+
+                break;
             case PLAY_VIDEO_RESULT_CODE:
                 Log.d(WiFiDirectActivity.TAG, "Video play terminated with result code = " + PLAY_VIDEO_RESULT_CODE);
                 controlpath.sendGoodBye();
+                break;
+            default:
+                Log.d(WiFiDirectActivity.TAG, "unknown result code=" + resultCode);
         }
     }
 
@@ -427,21 +428,59 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                    Pattern pattern = Pattern.compile("(http://|https://){1}[//w//.//-.:]+");
                     //String test = uri.;
                     AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
-                    dialog.setTitle(uri.substring(7)+"is sharing video");
-                    dialog.setMessage("Want to play it ?");
+                    dialog.setTitle(uri.substring(7) + "is sharing video");
+                    //dialog.setMessage("Want to play it ?");
+                    CharSequence choice_list[]={ "Play", "Download"};
+                    final ArrayList mSelectedItems = new ArrayList();
+                    dialog.setMultiChoiceItems(choice_list, null,
+                        new DialogInterface.OnMultiChoiceClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which, boolean isChecked) {
+                                if (isChecked) {
+                                    // If the user checked the item, add it to the selected items
+                                    mSelectedItems.add(which);
+                                    Log.d(WiFiDirectActivity.TAG,"mSelectedItems.add: " + which);
+
+                                } else if (mSelectedItems.contains(which)) {
+                                    // Else, if the item is already in the array, remove it
+                                    mSelectedItems.remove(Integer.valueOf(which));
+                                }
+                            }
+                        });
                     dialog.setCancelable(false);
                     dialog.setPositiveButton("Play", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
 
-                            Intent intent = new Intent(getActivity().getApplicationContext(), VideoViewActivity.class);
-                            intent.setDataAndType(Uri.parse(uri), "video/*");
-                            startActivityForResult(intent, PLAY_VIDEO_RESULT_CODE);
+//                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+//                            //intent.setDataAndType(Uri.parse(url), "video/*");
+//                            startActivity(intent);
+                            if (mSelectedItems.contains(0)) {
+                                Log.d(WiFiDirectActivity.TAG, "Play video");
+                                Intent intent = new Intent(getActivity().getApplicationContext(), VideoViewActivity.class);
+                                intent.setDataAndType(Uri.parse(uri), "video/*");
+                                startActivityForResult(intent, PLAY_VIDEO_RESULT_CODE);
+                            }
+                            if (mSelectedItems.contains(1)) {
+                                // start download server
+                                Log.d(WiFiDirectActivity.TAG,"uri=" + uri);
+                                //uri=http://192.168.49.1:55119/20160228_142344.mp4
+                                String server_ip = uri.substring(7, uri.indexOf(":",7));
+                                int port_offset = Integer.parseInt(
+                                        uri.substring(18, uri.indexOf(":", 18)));
+                                Log.d(WiFiDirectActivity.TAG, server_ip + "," + port_offset);
+                                controlpath.sendDonwloadRequest(server_ip, myIP, 9000 + port_offset);
+                                Log.d(WiFiDirectActivity.TAG, "Download data");
+                                FileServerAsyncTask task = new FileServerAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text));
+                                task.execute();
+                                // request for data
+                                //// TODO
+                            }
                         }
                     });
                     dialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
                         @Override
-                        public void onClick(DialogInterface dialog,int which){
+                        public void onClick(DialogInterface dialog, int which) {
 
                         }
                     });
@@ -454,6 +493,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         Toast.makeText(getActivity(),listener +" received server address ",Toast.LENGTH_LONG).show();
                     }
                     break;
+                default:
+                    Log.w(WiFiDirectActivity.TAG,"handleMessage: unexpected msg: " + msg.what);
             }
 //            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerReader)
 //                    .execute();
@@ -657,6 +698,20 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     Log.e(WiFiDirectActivity.TAG,e.getMessage());
                 }
             }
+            else if(msg.contains("DOWNLOAD"))
+            {
+                // send data ####### ADD IN CONTROL PATH
+                String peer_ip = msg.substring(msg.indexOf("192"), msg.indexOf(":"));
+                int peer_port = Integer.parseInt(msg.substring(msg.indexOf(":") + 1));
+
+                Intent serviceIntent = new Intent(getActivity(), FileTransferService.class);
+                serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
+                serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_PATH, server_file_uri);
+                // target address
+                serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS, peer_ip);
+                serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, peer_port);
+                getActivity().startService(serviceIntent);
+            }
             return OTHER;
         }
         public void sendIP(){
@@ -685,8 +740,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 //}
                 Sendthread msendthread = new Sendthread(it.next().toString(), 9000,"PORT:"+httpuri);
                 msendthread.start();
-                Log.d(WiFiDirectActivity.TAG,Integer.toString(time++));
+                Log.d(WiFiDirectActivity.TAG, Integer.toString(time++));
             }
+        }
+        public void sendDonwloadRequest(String server_ip, String client_ip, int client_dl_port)
+        {
+            Log.d(WiFiDirectActivity.TAG, "client" + client_ip + "downloadFile from server" + server_ip);
+            Sendthread msendthread = new Sendthread(server_ip, 9000,"DOWNLOAD:"+client_ip+":"+client_dl_port);
+            msendthread.start();
         }
 
         public void sendGoodBye(){
