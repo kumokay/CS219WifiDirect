@@ -128,7 +128,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 ((DeviceActionListener) getActivity()).connect(config);
             }
         });
-
         mContentView.findViewById(R.id.btn_disconnect).setOnClickListener(
                 new View.OnClickListener() {
 
@@ -472,10 +471,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                             dialog.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-
-//                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
-//                            //intent.setDataAndType(Uri.parse(url), "video/*");
-//                            startActivity(intent);
                                     if (mSelectedItems.contains(0)) {
                                         Log.d(WiFiDirectActivity.TAG, "Play video");
                                         Intent intent = new Intent(getActivity().getApplicationContext(), VideoViewActivity.class);
@@ -540,11 +535,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 default:
                     Log.w(WiFiDirectActivity.TAG, "handleMessage: unexpected msg: " + msg.what);
             }
-//            new StreamingAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text), peerReader)
-//                    .execute();
+
         }
     };
-
+    /*
+    A Thread class that operate sending MSG to specific IP
+    Sending model is that waiting for response after sending one MSG.(Blocking model)
+    Then, let function ProcessRequest to handle response. In most case, response would be the "PORT OK"
+    */
     class Sendthread extends Thread {
 
         private String IP = null;
@@ -597,7 +595,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
     }
 
-
+    /*
+    Controlpath main task is listening msg from other peer and responsing with a "ack" msg.
+    Controlpath keeps a local copy in hash table of all IP addr got from SYN MGE sent by group owner.
+     */
     public class Controlpath implements Runnable {
         //public static final String TAG = Controlpath.class.getName();
         private final static int HELLO = 0;
@@ -610,10 +611,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         private String myIP = null;
         private Thread thread = null;
         private HashSet<String> peerIP = new HashSet<String>();
-
-        //private BufferedReader peerReader = null;
-        //private BufferedWriter peerWriter = null;
-        //private String[] IPArray = null;
 
         public Controlpath(boolean isOwner,String IP){
             this.isOwner = isOwner;
@@ -638,12 +635,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     socket = new Socket(OwnerIP, 9000);
                     Log.d(WiFiDirectActivity.TAG, "Opening control socket - ");
                     socket.setSoTimeout(5000);
-                    //socket.bind(null);
-                    //socket.connect((new InetSocketAddress(OwnerIP, 9000)), 5000);
                     Log.d(WiFiDirectActivity.TAG, "Connection control socket");
-                    //peerIS = socket.getInputStream();
                     Reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    //peerScanner = new Scanner(peerIS);
                     myIP = socket.getLocalAddress().toString().substring(1);
                     Writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                     Writer.write("Hello:" + OwnerIP + '\n');  //Greeting formate : Hello:(ID addr)
