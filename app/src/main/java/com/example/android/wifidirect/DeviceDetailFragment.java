@@ -117,13 +117,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 }
                 progressDialog = ProgressDialog.show(getActivity(), "Press back to cancel",
                         "Connecting to :" + device.deviceAddress, true, true
-//                        new DialogInterface.OnCancelListener() {
-//
-//                            @Override
-//                            public void onCancel(DialogInterface dialog) {
-//                                ((DeviceActionListener) getActivity()).cancelDisconnect();
-//                            }
-//                        }
                 );
                 ((DeviceActionListener) getActivity()).connect(config);
             }
@@ -190,18 +183,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     Uri uri = data.getData();
                     server_file_uri = uri.toString();
                     String server_file_path = getRealPathFromURI(uri);
-//                    TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
-                    //statusText.setText("Sending: " + server_file_path);
                     Log.d(WiFiDirectActivity.TAG, "Intent(DeviceDetailFragment)----------- " + server_file_path);
 
                     // Initiating and start LocalFileStreamingServer
                     mServer = new LocalFileStreamingServer(new File(server_file_path), myIP, controlpath);
-                    //String deviceIp = info.groupOwnerAddress.getHostAddress();
-                    //        Log.d(WiFiDirectActivity.TAG,"Here is the Httpserver addr: "+httpUri);
-                    //        if(controlpath!=null) {
-                    //            controlpath.sendPort(httpUri);
-                    //            Log.d(WiFiDirectActivity.TAG,"sending url to client");
-                    //        }
                     if (null != mServer && !mServer.isRunning())
                         mServer.start();
                     mContentView.findViewById(R.id.stop_server).setVisibility(View.VISIBLE);
@@ -251,40 +236,15 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // socket.
 
         if (info.groupFormed  ) {
-            //Log.d(WiFiDirectActivity.TAG,"start init");
             if(controlpath==null) {
                 controlpath = new Controlpath(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
                 controlpath.start();
             }
             if(!info.isGroupOwner) {
-                /*
-                progressDialog.setTitle("Waiting for owner preparation");
-                progressDialog.setMessage("Loading...");
-                progressDialog.setCancelable(true);
-            final Handler timerhandler = new Handler();
-            Runnable runnable = new Runnable() {
-                @Override
-                public void run() {
-                    if (progressDialog != null && progressDialog.isShowing()) {
-                        progressDialog.dismiss();
-                    }
-                    controlpath.init();
-                    timerhandler.postDelayed(this,500);
-                }
-            }
-            */
             }else{
 
             }
         }
-//        else if (info.groupFormed) {
-//            // The other device acts as the client. In this case, we enable the
-//            // get file button.
-//            //mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
-//            //((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
-//                    .getString(R.string.client_text));
-//        }
-
         if (mServer == null){
             mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
         }
@@ -347,20 +307,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         @Override
         protected String doInBackground(Void... params) {
 
-//                ServerSocket serverSocket = new ServerSocket(8988);
-//                Log.d(WiFiDirectActivity.TAG, "Server: Socket opened");
-//                Socket client = serverSocket.accept();
-//                Log.d(WiFiDirectActivity.TAG, "Server: connection done");
-//                final File f = new File(Environment.getExternalStorageDirectory() + "/"
-//                        + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
-//                        + ".jpg");
-//
-//                File dirs = new File(f.getParent());
-//                if (!dirs.exists())
-//                    dirs.mkdirs();
-//                f.createNewFile();
-//
-//                Log.d(WiFiDirectActivity.TAG, "server: copying files " + f.toString());
             String url = null;
 
             try {
@@ -383,26 +329,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             return url;
         }
 
-        /*
-         * (non-Javadoc)
-         * @see android.os.AsyncTask#onPostExecute(java.lang.Object)
-         */
-//        @Override
-//        protected void onPostExecute(String result) {
-//            if (result != null) {
-//                statusText.setText("File copied - " + result);
-//                Intent intent = new Intent();
-//                intent.setAction(android.content.Intent.ACTION_VIEW);
-//                intent.setDataAndType(Uri.parse("file://" + result), "image/*");
-//                context.startActivity(intent);
-//            }
-//
-//        }
-
-        /*
-         * (non-Javadoc)
-         * @see android.os.AsyncTask#onPreExecute()
-         */
         @Override
         protected void onPreExecute() {
             statusText.setText("Opening a listening socket");
@@ -426,11 +352,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
         return true;
     }
+
+    /*
+     *  receive info from listening thread or controlthread and interact with UI.
+     */
     private Handler handle = new Handler(){
         @Override
         public void handleMessage(Message msg){
             switch(msg.what){
                 case MSG_IP:
+                    //update my IP in device Detail Fragment
                     myIP = (String)msg.obj;
                     Log.d(WiFiDirectActivity.TAG,"UI thread get from " + myIP);
                     break;
@@ -438,10 +369,12 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 case ACTIVE:
                     if(currentplayingIP==null) {
                         final String uri = (String) msg.obj;
+                        //Use regular expression to match IP address
                         Pattern pattern = Pattern.compile("(http://|https://){1}((\\d{1,3}\\.){3}\\d{1,3})(:\\d*/)(.*)");
                         Matcher matcher = pattern.matcher(uri);
                         final String receivedIP;
                         final String receivedfilename;
+
                         if (matcher.find()) {
                             receivedIP = matcher.group(2);
                             Log.d(WiFiDirectActivity.TAG,receivedIP);
@@ -519,7 +452,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     break;
                 case MSG_BYE:
                     listener--;
-                    if(listener <= 0)
+                    if(listener <= 0)  //if listener's number equal to 0 which means no peer in this group want to watch this video, device will stop the http server
                     {
                         ((TextView) mContentView.findViewById(R.id.status_text)).setText("");
                         ((TextView) mContentView.findViewById(R.id.stop_server)).setVisibility(View.GONE);
@@ -596,8 +529,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     }
 
     /*
-    Controlpath main task is listening msg from other peer and responsing with a "ack" msg.
-    Controlpath keeps a local copy in hash table of all IP addr got from SYN MGE sent by group owner.
+     *Controlpath main task is listening msg from other peer and responsing with a "ack" msg.
+     *Controlpath keeps a local copy in hash table of all IP addr got from SYN MGE sent by group owner.
      */
     public class Controlpath implements Runnable {
         //public static final String TAG = Controlpath.class.getName();
@@ -624,6 +557,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
         public boolean isRunning(){return isRunning;}
 
+        /*
+         * if this device is not group owner, then send greeting msg to owner to let it know my IP address
+         */
         public boolean init() throws IOException{
             BufferedReader Reader;
             BufferedWriter Writer;
@@ -681,15 +617,28 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 Log.d(WiFiDirectActivity.TAG,"accepting error");
             }
         }
+
+        public void stop() {
+            isRunning = false;
+            if (thread == null) {
+                Log.e(WiFiDirectActivity.TAG , "Server was stopped without being started.");
+                return;
+            }
+            Log.e(WiFiDirectActivity.TAG, "Stopping server.");
+            thread.interrupt();
+        }
+
+        /*
+         *Processing msg received from other peer and response to that.
+         */
         public int ProcessRequest(String msg,BufferedWriter out){
-            if(msg.contains("Hello:")) {
-                Log.d(WiFiDirectActivity.TAG,"IP notified");
+            if(msg.contains("Hello:")) {                                                            //peer->owner greeting msg
+                Log.d(WiFiDirectActivity.TAG,"Received greeting msg from peer");
                 return HELLO;
             }
-            else if(msg.contains("PORT:")) {
-                //get portnum from message;
+            else if(msg.contains("PORT:")) {                                                        //server -> client Sending http server's PORT number. server doesn't has to be owner, clients are all device except itself
                 String url = msg.substring(msg.indexOf("http://"));
-                Log.d(WiFiDirectActivity.TAG, url);
+                Log.d(WiFiDirectActivity.TAG, "get http url from one peer in group: "+url);
                 handle.obtainMessage(ACTIVE, url).sendToTarget();
                 try {
                     out.write("PORT OK");
@@ -700,16 +649,15 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 }
                 return OTHER;
             }
-            else if(msg.contains("CUT:")){
+            else if(msg.contains("CUT:")){                                                          //server -> client Notifying other clients that the https server is no longer exists.
                 Log.d(WiFiDirectActivity.TAG,"Server wanna shut down server");
-                //active cut thread , and notifies peer
                 return OTHER;
             }
             else if(msg.contains("GOODBYE:")){
                 String cancelIP = msg.substring(msg.indexOf(':')+1);
                 try{
                     out.write("PORT OK");
-                    Log.d(WiFiDirectActivity.TAG,cancelIP+"has played off");
+                    Log.d(WiFiDirectActivity.TAG,cancelIP+"won't make request on this server");
                     out.flush();
                 }catch (IOException e){
                     Log.e(WiFiDirectActivity.TAG,e.getMessage());
@@ -717,14 +665,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 handle.sendEmptyMessage(MSG_BYE);
                 return OTHER;
             }
-            else if(msg.contains("PORT OK")){
-                handle.obtainMessage(MSG_PORT,true).sendToTarget();
-                Log.d(WiFiDirectActivity.TAG,"OK");
+            else if(msg.contains("PORT OK")){                                                       //PORT OK: sck msg. Every msg need a response msg, or application would freeze.
+                //handle.obtainMessage(MSG_PORT,true).sendToTarget();
+                Log.d(WiFiDirectActivity.TAG,"receive OK ack");
                 return OK;
             }
-            else if(msg.contains("SYN")){
+            else if(msg.contains("SYN")){                                                           //SYN:     peer <-owner   msg contains all peers' address in one group.
                 msg = msg.substring(msg.indexOf(':')+1);
-                Log.d(WiFiDirectActivity.TAG,msg);
+                Log.d(WiFiDirectActivity.TAG,"synchronize IP set from owner "+msg);
                 String IPs[] = msg.split("/");
                 for(int i = 0 ; i < IPs.length ;++i){
                     if(myIP.compareTo(IPs[i])==0)
@@ -742,7 +690,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     Log.e(WiFiDirectActivity.TAG,e.getMessage());
                 }
             }
-            else if(msg.contains("DOWNLOAD"))
+            else if(msg.contains("DOWNLOAD"))                                                       //DOWNLOAD: client -> server  requesting file transfer service
             {
                 // send data ####### ADD IN CONTROL PATH
                 String peer_ip = msg.substring(msg.indexOf("192"), msg.indexOf(":",12));
@@ -765,6 +713,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             }
             return OTHER;
         }
+
         public void sendIP(){
             Log.d(WiFiDirectActivity.TAG,"Syn IP set");
             String IPset = "";
@@ -773,7 +722,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             }
             Log.d(WiFiDirectActivity.TAG,IPset);
             for(Iterator it = peerIP.iterator(); it.hasNext();){
-                //Log.d(WiFiDirectActivity.TAG,"Send IPset to "+it.next().toString());
                 Sendthread sendthread = new Sendthread(it.next().toString(),9000,"SYN:"+IPset);
                 sendthread.start();
             }
@@ -789,12 +737,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 msendthread.start();
             }
         }
+
         public void sendDonwloadRequest(String server_ip, String client_ip, int client_dl_port)
         {
             Log.d(WiFiDirectActivity.TAG, "client" + client_ip + "downloadFile from server" + server_ip);
             Sendthread msendthread = new Sendthread(server_ip, 9000,"DOWNLOAD:"+client_ip+":"+client_dl_port);
             msendthread.start();
         }
+
         public void sendGoodBye(){
             if(currentplayingIP!=null){
                 Sendthread msendthread = new Sendthread(currentplayingIP, 9000,"GOODBYE:"+myIP);
@@ -804,15 +754,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             }
 
         }
-        public void stop() {
-            isRunning = false;
-            if (thread == null) {
-                Log.e(WiFiDirectActivity.TAG , "Server was stopped without being started.");
-                return;
-            }
-            Log.e(WiFiDirectActivity.TAG, "Stopping server.");
-            thread.interrupt();
-        }
+
         public class Listenthread implements Runnable{
             private Socket socket = null;
             public boolean isRunning = false;
@@ -822,17 +764,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 this.socket = socket;
                 this.connectIP = connectIP;
             }
-
-
             @Override
             public void run(){
                 String content = null;
                 BufferedReader Reader;
                 BufferedWriter Writer;
                 try {
-                    //peerIS = socket.getInputStream();
                     Reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    //peerScanner = new Scanner(peerIS);
                     Writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                     String IP = socket.getRemoteSocketAddress().toString();
                     IP = IP.substring(IP.indexOf('/')+1,IP.indexOf(':'));
