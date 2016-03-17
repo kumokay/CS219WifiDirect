@@ -570,10 +570,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             }catch(IOException e){
                 Log.e(WiFiDirectActivity.TAG, e.getMessage());
                 try {
-                    Thread.sleep(400);
+                    Thread.sleep(50);
                     if(--retrynum>0)
                     run();
                     else
+                    controlpath.peerIP.remove((String) IP);
                     return;
                 }catch (InterruptedException error){
                     Log.e(WiFiDirectActivity.TAG, error.getMessage());
