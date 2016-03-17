@@ -8,8 +8,9 @@ import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import com.example.android.wifidirect.WiFiDirectActivity;
+import com.example.android.wifidirect.DeviceDetailFragment;
 import com.example.streamlocalfile.LocalFileStreamingServer;
 
 import java.io.File;
@@ -58,9 +59,10 @@ public class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
 
 
             copyFile(inputstream, new FileOutputStream(f));
+            Log.d(WiFiDirectActivity.TAG,"reach here");
             serverSocket.close();
             return f.getAbsolutePath();
-
+            //return null;
         } catch (IOException e) {
             Log.e(WiFiDirectActivity.TAG, e.getMessage());
             return null;
@@ -69,13 +71,14 @@ public class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
 
 
     protected void onPostExecute(String result) {
-        if (result != null) {
-            //statusText.setText("File copied - " + result);
-            Intent intent = new Intent();
-            intent.setAction(android.content.Intent.ACTION_VIEW);
-            intent.setDataAndType(Uri.parse("file://" + result), "video/*");
-            context.startActivity(intent);
-        }
+//        if (result != null) {
+//            //statusText.setText("File copied - " + result);
+//            Intent intent = new Intent();
+//            intent.setAction(android.content.Intent.ACTION_VIEW);
+//            intent.setDataAndType(Uri.parse("file://" + result), "video/*");
+//            context.startActivity(intent);
+//
+//        }
     }
 
     public static boolean copyFile(InputStream inputStream, OutputStream out) {
@@ -88,7 +91,7 @@ public class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
             out.close();
             inputStream.close();
         } catch (IOException e) {
-            Log.d(WiFiDirectActivity.TAG, e.toString());
+            Log.d(WiFiDirectActivity.TAG, "file trans "+e.toString());
             return false;
         }
         return true;

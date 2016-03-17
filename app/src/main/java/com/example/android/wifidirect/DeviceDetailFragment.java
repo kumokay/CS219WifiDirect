@@ -20,10 +20,12 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Fragment;
 import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.CursorLoader;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.Uri;
 import android.net.wifi.WpsInfo;
@@ -95,7 +97,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private Controlpath controlpath = null;
     private int listener = 0 ;
     private String server_file_uri;
-
+    private DataReceiver dataReceiver;
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
@@ -398,7 +400,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 case MSG_IP:
                     //update my IP in device Detail Fragment
                     myIP = (String)msg.obj;
-                    Log.d(WiFiDirectActivity.TAG,"UI thread get from " + myIP);
                     break;
 
                 case ACTIVE:
@@ -447,6 +448,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                                     }
                                     if (mSelectedItems.contains(1)) {
                                         // start download server
+                                        if(!mSelectedItems.contains(0)) {
+                                            Log.d(WiFiDirectActivity.TAG,"only downloading");
+                                            controlpath.sendGoodBye();
+                                        }
                                         Log.d(WiFiDirectActivity.TAG, "uri=" + uri);
                                         String server_ip = uri.substring(7, uri.indexOf(":", 7));
                                         int port_offset = Integer.parseInt(
@@ -874,5 +879,12 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
 
     }
+    private class DataReceiver extends BroadcastReceiver{
+        @Override
+        public void onReceive(Context context,Intent intent){
+            int data = intent.getIntExtra("listen",0);
+            handle.sendEmptyMessage(MSG_BYE);
+        }
 
+    }
 }

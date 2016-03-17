@@ -13,7 +13,7 @@ import android.provider.MediaStore;
 import android.database.Cursor;
 
 import com.example.streamlocalfile.LocalFileStreamingServer;
-
+import com.example.android.wifidirect.DeviceDetailFragment;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -78,34 +78,7 @@ public class FileTransferService extends IntentService {
                 DeviceDetailFragment.copyFile(is, stream);
                 Log.d(WiFiDirectActivity.TAG, "Client: Data written");
 
-                //Log.d(WiFiDirectActivity.TAG, "Intent (FileTransferService)----------- " + fileUri);
 
-
-//                try{
-//                    Log.e(LocalFileStreamingServer.TAG, "TEST: Attempt to open File as FileInputStream...");
-//                    //FileInputStream inputStreamTest = new FileInputStream(new File(fileUri));
-//
-//                    Log.e(LocalFileStreamingServer.TAG, "TEST: contentUri = " + fileUri);
-//                    //ContentResolver cr = context.getContentResolver();
-//                    String realPath = getRealPathFromURI(Uri.parse(fileUri));
-//                    Log.e(LocalFileStreamingServer.TAG, "TEST: fileUri = " + realPath);
-//                    File test = new File(realPath);
-//                    FileInputStream inputStreamTest = new FileInputStream(test);
-//                    Log.e(LocalFileStreamingServer.TAG, "TEST: Succeeded at opening File as FileInputStream...");
-//                }
-//                catch(IOException e)
-//                {
-//                    Log.e(LocalFileStreamingServer.TAG, "TEST: Error opening file", e);
-//                }
-
-
-//                mServer = new LocalFileStreamingServer(new File(getRealPathFromURI(Uri.parse(fileUri))));
-
-                //String deviceIp = host;
-//                String httpUri = mServer.init(deviceIp);
-//                if (null != mServer && !mServer.isRunning())
-//                    mServer.start();
-//                Log.d(WiFiDirectActivity.TAG, "Streaming----------- " + httpUri);
             } catch (Exception e) {
                 Log.e(WiFiDirectActivity.TAG, e.getMessage());
             } finally {
