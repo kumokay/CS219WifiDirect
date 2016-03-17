@@ -12,4 +12,9 @@ It is a small project that enable sharing video file between devices. The device
 16/2/29 at 22:39  Feasibility verified. Release 0.1  by Lui Liu <br>
 16/3/2 at 22:30   integrate with VideoView into application by kumokay <br>
 16/3/5 at 14:25   Enable multi peer in group share file   by moki <br>
+16/3/16 at 18:12  Brings more robustness<br>
 
+
+
+##4.bug
+If you find any bug during using. Please contact with us.
