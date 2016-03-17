@@ -89,15 +89,16 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                     .getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
 
             if (networkInfo.isConnected()) {
-
+                //activity.resetData();
                 // we are connected with the other device, request connection
                 // info to find group owner IP
-
+                //Log.w(WiFiDirectActivity.TAG,"whether it has reached several times?");
                 DeviceDetailFragment fragment = (DeviceDetailFragment) activity
                         .getFragmentManager().findFragmentById(R.id.frag_detail);
                 manager.requestConnectionInfo(channel, fragment);
             } else {
                 // It's a disconnect
+                Log.w(WiFiDirectActivity.TAG, "No available connection");
                 activity.resetData();
             }
         } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {

@@ -23,16 +23,16 @@ import java.net.Socket;
 public class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
 
     private Context context;
-    private TextView statusText;
+    //private TextView statusText;
     private int port;
 
     /**
      * @param context
      * @param statusText
      */
-    public FileServerAsyncTask(Context context, View statusText, int port) {
+    public FileServerAsyncTask(Context context, int port) {
         this.context = context;
-        this.statusText = (TextView) statusText;
+        //this.statusText = (TextView) statusText;
         this.port = port;
     }
     @Override
@@ -70,7 +70,7 @@ public class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
 
     protected void onPostExecute(String result) {
         if (result != null) {
-            statusText.setText("File copied - " + result);
+            //statusText.setText("File copied - " + result);
             Intent intent = new Intent();
             intent.setAction(android.content.Intent.ACTION_VIEW);
             intent.setDataAndType(Uri.parse("file://" + result), "video/*");
@@ -84,7 +84,6 @@ public class FileServerAsyncTask extends AsyncTask<Void, Void, String> {
         try {
             while ((len = inputStream.read(buf)) != -1) {
                 out.write(buf, 0, len);
-
             }
             out.close();
             inputStream.close();

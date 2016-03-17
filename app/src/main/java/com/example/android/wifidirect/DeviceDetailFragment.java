@@ -47,7 +47,6 @@ import android.widget.Toast;
 
 import com.example.android.wifidirect.DeviceListFragment.DeviceActionListener;
 import com.example.streamlocalfile.LocalFileStreamingServer;
-//import com.example.streamlocalfile.Controlpath;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
@@ -84,6 +83,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private final int ACTIVE = 1;
     private final int MSG_PORT = 2;
     private final int MSG_BYE = 3;
+    private final int WARNING = 4;
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
@@ -102,7 +102,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, final ViewGroup container, Bundle savedInstanceState) {
 
         mContentView = inflater.inflate(R.layout.device_detail, null);
         mContentView.findViewById(R.id.btn_connect).setOnClickListener(new View.OnClickListener() {
@@ -118,6 +118,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 progressDialog = ProgressDialog.show(getActivity(), "Press back to cancel",
                         "Connecting to :" + device.deviceAddress, true, true
                 );
+
                 ((DeviceActionListener) getActivity()).connect(config);
             }
         });
@@ -126,14 +127,17 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                     @Override
                     public void onClick(View v) {
+//                        if (mServer != null) {
+//                            Log.d(WiFiDirectActivity.TAG, "HTTP Server stopped without being declared");
+//                            handle.obtainMessage(WARNING,"")
+//                            mServer.stop();
+//                        }
+//                        Log.d(WiFiDirectActivity.TAG, "HTTP Server Terminated");
+//                        if(controlpath!=null) {
+//                            controlpath.stop();
+//                        }
                         ((DeviceActionListener) getActivity()).disconnect();
-                        if (mServer != null) {
-                            Log.d(WiFiDirectActivity.TAG, "HTTP Server stopped without being declared");
-                            mServer.stop();
-                            mServer = null;
-                        }
-                        Log.d(WiFiDirectActivity.TAG, "HTTP Server Terminated");
-                        controlpath.stop();
+                        resetViews();
                         Log.d(WiFiDirectActivity.TAG, "Control Path Server Terminated");
                     }
                 });
@@ -173,7 +177,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        Log.d(WiFiDirectActivity.TAG,"requestCode is "+Integer.toString(requestCode)+";resultCode is" + Integer.toString(resultCode));
+        Log.d(WiFiDirectActivity.TAG, "requestCode is " + Integer.toString(requestCode) + ";resultCode is" + Integer.toString(resultCode));
         switch (requestCode) {
             case CHOOSE_FILE_RESULT_CODE:
                 if(resultCode== Activity.RESULT_OK) {
@@ -219,7 +223,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
         }
+        //if(info==null)
         this.info = info;
+        //else{
+        //    this.info=null;
+        //}
         this.getView().setVisibility(View.VISIBLE);
         // The owner IP is now known.
         TextView view = (TextView) mContentView.findViewById(R.id.group_owner);
@@ -240,9 +248,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 controlpath = new Controlpath(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
                 controlpath.start();
             }
-            if(!info.isGroupOwner) {
-            }else{
-
+            else{
+                Log.d(WiFiDirectActivity.TAG," previously declared one");
             }
         }
         if (mServer == null){
@@ -272,6 +279,25 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
      */
     public void resetViews() {
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
+        mContentView.findViewById(R.id.stop_server).setVisibility(View.GONE);
+        if(controlpath==null)
+            Log.d(WiFiDirectActivity.TAG,"no valid control path");
+        else{
+            Log.d(WiFiDirectActivity.TAG, "There is a valid control path");
+            if(myIP!=null&&myIP.equals("192.168.49.1"))
+            {
+                handle.obtainMessage(WARNING,"Connection with other peers has failed").sendToTarget();
+            }
+            else if(mServer ==null){
+                handle.obtainMessage(WARNING,"Connection with other peers has failed").sendToTarget();
+            }
+            else if(mServer!=null){
+                mServer.stop();
+                handle.obtainMessage(WARNING,"Connection with other peers has failed").sendToTarget();
+            }
+            controlpath.stop();
+        }
+        resetdata();
         TextView view = (TextView) mContentView.findViewById(R.id.device_address);
         view.setText(R.string.empty);
         view = (TextView) mContentView.findViewById(R.id.device_info);
@@ -280,8 +306,19 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view.setText(R.string.empty);
         view = (TextView) mContentView.findViewById(R.id.status_text);
         view.setText(R.string.empty);
+
         mContentView.findViewById(R.id.btn_start_client).setVisibility(View.GONE);
         this.getView().setVisibility(View.GONE);
+    }
+
+    public void resetdata(){
+        Log.d(WiFiDirectActivity.TAG, "myIP is exist? " + this.myIP);
+        String myIP = null;
+        String currentplayingIP = null;
+        info = null;
+        mServer = null;
+        listener = 0 ;
+        server_file_uri = null;
     }
 
     /**
@@ -310,8 +347,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             String url = null;
 
             try {
-
-
                 //readLine will block until input is available
                 url = peerReader.readLine();
                 Log.d(WiFiDirectActivity.TAG, "HTTP Server IP Address: " + url);
@@ -420,7 +455,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                                         controlpath.sendDonwloadRequest(server_ip, myIP, 9000 + port_offset);
                                         Log.d(WiFiDirectActivity.TAG, "Download data");
                                         FileServerAsyncTask task = new FileServerAsyncTask(
-                                                getActivity(), mContentView.findViewById(R.id.status_text), 9000 + port_offset);
+                                                getActivity(), 9000 + port_offset);//mContentView.findViewById(R.id.status_text)
                                         task.execute();
                                     }
                                 }
@@ -465,6 +500,19 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     }
                     else
                         ((TextView) mContentView.findViewById(R.id.status_text)).setText(Integer.toString(listener) + " peer is playing");
+                    break;
+                case WARNING:
+                    String warning = (String)msg.obj;
+                    AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
+                    dialog.setTitle("Warning");
+                    dialog.setMessage(warning);
+                    dialog.setCancelable(false);
+                    dialog.setPositiveButton("I Know", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which){}
+                        });
+                    dialog.show();
+                    break;
                 default:
                     Log.w(WiFiDirectActivity.TAG, "handleMessage: unexpected msg: " + msg.what);
             }
@@ -481,7 +529,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         private String IP = null;
         private int port;
         private String msg = null;
-
+        private int retrynum = 10;
         public Sendthread(String IP,String port,String msg){
             this.IP = IP;
             this.port = Integer.parseInt(port);
@@ -514,13 +562,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 Writer.close();
                 Reader.close();
                 socket.close();
-                //if(response!=controlpath.OK)
-                //    run();
             }catch(IOException e){
                 Log.e(WiFiDirectActivity.TAG, e.getMessage());
                 try {
                     Thread.sleep(400);
+                    if(--retrynum>0)
                     run();
+                    else
+                    return;
                 }catch (InterruptedException error){
                     Log.e(WiFiDirectActivity.TAG, error.getMessage());
                 }
@@ -543,7 +592,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         private String OwnerIP = null;
         private String myIP = null;
         private Thread thread = null;
+        private int retrynum = 10 ;
         private HashSet<String> peerIP = new HashSet<String>();
+        private ServerSocket serverSocket = null;
 
         public Controlpath(boolean isOwner,String IP){
             this.isOwner = isOwner;
@@ -556,6 +607,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             isRunning = true;
         }
         public boolean isRunning(){return isRunning;}
+
+
 
         /*
          * if this device is not group owner, then send greeting msg to owner to let it know my IP address
@@ -605,27 +658,46 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 run();
             }
             try{
-                ServerSocket serverSocket = new ServerSocket(9000);
+                serverSocket = new ServerSocket(9000);
                 while(isRunning){
                     Socket socket = serverSocket.accept();
                     String connectIP = socket.getRemoteSocketAddress().toString();
                     new Thread(new Listenthread(socket,connectIP)).start();
                 }
+                serverSocket.close();
+                Log.d(WiFiDirectActivity.TAG,"9000 port has been terminated");
 
             }catch (IOException e){
-                Log.e(WiFiDirectActivity.TAG,e.getMessage());
-                Log.d(WiFiDirectActivity.TAG,"accepting error");
+                Log.e(WiFiDirectActivity.TAG, "controlpath:" + e.getMessage());
+                Log.d(WiFiDirectActivity.TAG, "accepting error");
+                if(serverSocket!=null)
+                    try {
+                        serverSocket.close();
+                    }catch (IOException error){
+                        Log.e(WiFiDirectActivity.TAG, e.getMessage() + "serversocket");
+                    }
+
             }
         }
 
         public void stop() {
             isRunning = false;
+            try {
+                serverSocket.close();
+            }catch (IOException e){
+                Log.d(WiFiDirectActivity.TAG,e.getMessage());
+            }
             if (thread == null) {
-                Log.e(WiFiDirectActivity.TAG , "Server was stopped without being started.");
+                Log.e(WiFiDirectActivity.TAG , "Control was stopped without being started.");
                 return;
             }
-            Log.e(WiFiDirectActivity.TAG, "Stopping server.");
+            peerIP.clear();
+            OwnerIP = null;
+            myIP = null;
+            Log.e(WiFiDirectActivity.TAG, "Stopping Controlling.");
             thread.interrupt();
+            thread = null;
+            controlpath = null;
         }
 
         /*
@@ -666,7 +738,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 return OTHER;
             }
             else if(msg.contains("PORT OK")){                                                       //PORT OK: sck msg. Every msg need a response msg, or application would freeze.
-                //handle.obtainMessage(MSG_PORT,true).sendToTarget();
+                handle.sendEmptyMessage(MSG_PORT);
                 Log.d(WiFiDirectActivity.TAG,"receive OK ack");
                 return OK;
             }

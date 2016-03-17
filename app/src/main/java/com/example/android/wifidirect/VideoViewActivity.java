@@ -64,6 +64,13 @@ public class VideoViewActivity extends Activity {
 
             VideoURL = getIntent().getData().toString();
             videoview.setVideoPath(VideoURL);
+            videoview.setOnErrorListener(new MediaPlayer.OnErrorListener(){
+                @Override
+                public boolean onError(MediaPlayer mp,int what, int extra){
+                    Log.e(WiFiDirectActivity.TAG,"something error happened");
+                    return false;
+                }
+            });
         } catch (Exception e) {
             Log.e("Error", e.getMessage());
             e.printStackTrace();
