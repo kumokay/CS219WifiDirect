@@ -1,0 +1,82 @@
+public class ControlLayer implements Runnable{
+
+    private boolean isOwner;
+    private String goIP = null;
+    private String myIP = null;
+    private HashSet<String> peerIP = new HashSet<String>();
+
+    public Controlpath(boolean isOwner, String goIP){
+        this.isOwner = isOwner;
+        this.goIP = goIP;
+    }
+
+    @Override
+    public void run(){
+
+        // select statement and process received message
+    }
+
+    public void init(){
+        // if not owner, send message to owner to register IP
+        if (!isOwner) {
+
+            boolean success = false;
+            while (!success){
+                try {
+                    socket = new Socket(goIP, 9000);
+                    Log.d(WiFiDirectActivity.TAG, "Socket opened: OwnerIP = " + goIP);
+//                    socket.setSoTimeout(5000);
+                    myIP = socket.getLocalAddress().toString().substring(1);
+
+                    Writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                    String message = "HELLO";
+                    Writer.write(message);
+                    Log.d(WiFiDirectActivity.TAG, "Message Sent: " + message);
+                    peerIP.add(goIP);
+
+                    Writer.flush();
+                    Writer.close();
+                    socket.close();
+                    Log.d(WiFiDirectActivity.TAG, "Socket closed");
+
+                    success = true;
+
+                } catch (InterruptedException e) {
+                    Log.e(WiFiDirectActivity.TAG, e.getMessage());
+                }
+            }
+        }
+        else{
+            myIP = goIP;
+        }
+    }
+    public void processRequest(String request){
+        // process request and send response as needed
+        if (request.contains("HELLO")){
+            // save IP in the HashSet and broadcast new IP to everyone
+
+
+        } else if (request.contains("SYN")) {
+
+            msg = msg.substring(msg.indexOf(':')+1);
+            Log.d(WiFiDirectActivity.TAG,"synchronize IP set from owner "+msg);
+            String IPs[] = msg.split("/");
+            for(int i = 0; i < IPs.length; i++){
+                if(myIP.compareTo(IPs[i])==0)
+                    continue;
+                else if(IPs[i]!=""){
+                    Log.d(WiFiDirectActivity.TAG,"Here "+IPs[i]);
+                    peerIP.add(IPs[i]);
+                }
+            }
+            try{
+                out.write("PORT OK");
+                Log.d(WiFiDirectActivity.TAG,"Reply to server");
+                out.flush();
+            }catch (IOException e){
+                Log.e(WiFiDirectActivity.TAG,e.getMessage());
+            }
+
+        }
+    }
+}
