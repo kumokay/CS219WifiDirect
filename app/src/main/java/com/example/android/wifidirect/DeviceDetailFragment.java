@@ -97,8 +97,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private ProgressDialog progressDialog = null;
 //    private LocalFileStreamingServer mServer = null;
 //    private Controlpath controlpath = null;
-    private Thread controlLayerThread;
-    private ControlLayer controlLayerObj;
+//    private Thread controlLayerThread;
+    private ControlLayer controlLayer;
 //    private int listener = 0 ;
 //    private String server_file_uri;
 //    private DataReceiver dataReceiver;
@@ -141,26 +141,36 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                            mServer.stop();
 //                        }
 //                        Log.d(WiFiDirectActivity.TAG, "HTTP Server Terminated");
-                        if(controlLayerObj != null) {
-                            controlLayerObj.stop();
+                        if(controlLayer != null) {
+                            controlLayer.stop();
                         }
                         ((DeviceActionListener) getActivity()).disconnect();
                         resetViews();
                     }
                 });
 
-//        mContentView.findViewById(R.id.btn_start_client).setOnClickListener(
-//                new View.OnClickListener() {
+        mContentView.findViewById(R.id.btn_start_client).setOnClickListener(
+                new View.OnClickListener() {
+
+                    @Override
+                    public void onClick(View v) {
+                        // Start Hadoop client or master mode
+
+                        if(info.isGroupOwner){
+                            // Launch Hadoop as Master node
+                        } else {
+                            // Launch Hadoop as Client node
+                        }
+                        
+                        controlLayer.sendMessage("START", controlLayer.goIP);
+
 //
-//                    @Override
-//                    public void onClick(View v) {
-//                        // Allow user to pick an image from Gallery or other
-//                        // registered apps
 //                        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
 //                        intent.setType("video/*");
 //                        startActivityForResult(intent, CHOOSE_FILE_RESULT_CODE);
-//                    }
-//                });
+                    }
+                });
+
 //        mContentView.findViewById(R.id.stop_server).setOnClickListener(
 //                new View.OnClickListener() {
 //                    @Override
@@ -249,18 +259,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // socket.
 
         if (info.groupFormed) {
-            if(controlLayerObj == null) {
-                controlLayerObj = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
-                controlLayerThread = new Thread(controlLayerObj);
-                controlLayerThread.start();
-            }
-            else{
-                Log.d(WiFiDirectActivity.TAG, "Control Layer previously declared");
-            }
+            controlLayer = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
+            controlLayer.start();
+//            controlLayerThread = new Thread(controlLayer);
+//            controlLayerThread.start();
         }
 //        if (mServer == null){
 //            mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
 //        }
+
+        mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
 
         //hide the connect button
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
@@ -305,8 +313,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //            controlpath.stop();
 //        }
 
-        if (controlLayerObj != null)
-            controlLayerObj.stop();
+        if (controlLayer != null)
+            controlLayer.stop();
 
         resetdata();
         TextView view = (TextView) mContentView.findViewById(R.id.device_address);
@@ -319,6 +327,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view.setText(R.string.empty);
 
         mContentView.findViewById(R.id.btn_start_client).setVisibility(View.GONE);
+
         this.getView().setVisibility(View.GONE);
     }
 
