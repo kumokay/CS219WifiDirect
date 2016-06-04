@@ -11,7 +11,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.android.wifidirect.DeviceDetailFragment;
-import com.example.streamlocalfile.LocalFileStreamingServer;
+//import com.example.streamlocalfile.LocalFileStreamingServer;
 
 import java.io.File;
 import java.io.FileOutputStream;

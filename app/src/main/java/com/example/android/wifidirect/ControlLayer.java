@@ -1,4 +1,18 @@
+package com.example.android.wifidirect;
+
+import java.net.SocketTimeoutException;
 import java.util.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import android.util.Log;
+
 
 public class ControlLayer implements Runnable{
 
@@ -7,38 +21,46 @@ public class ControlLayer implements Runnable{
     private String goIP = null;
     private String myIP = null;
     private HashSet<String> peerIP = new HashSet<String>();
+    ServerSocket serverSocket;
 
-    public Controlpath(boolean isOwner, String goIP){
+    public ControlLayer(boolean isOwner, String goIP){
         this.isOwner = isOwner;
         this.goIP = goIP;
     }
 
     @Override
-    public void run(){
+    public void run() {
 
         // Process received message
         init();
         isRunning = true;
 
         // Accept incoming connection
-        try{
+        try {
             serverSocket = new ServerSocket(9000);
             serverSocket.setSoTimeout(10000);
 
-            while(isRunning){
-                try{
+            while (isRunning) {
+                try {
                     Socket clientSocket = serverSocket.accept();
-                    processRequest(clientSocket);
+
+                    BufferedReader Reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                    String request = Reader.readLine();
+
+                    processRequest(request, clientSocket);
 //                    new Thread(new Listenthread(socket,connectIP)).start();
-                }catch (SocketTimeoutException s) {
+                } catch (SocketTimeoutException s) {
                     Log.e(WiFiDirectActivity.TAG, "Waiting for client");
+                } catch (IOException e) {
+                    Log.e(WiFiDirectActivity.TAG, e.getMessage());
                 }
             }
-        }catch (IOException e) {
+
+            serverSocket.close();
+
+        } catch (IOException e) {
             Log.e(WiFiDirectActivity.TAG, "Control Layer initiation failed");
             Log.e(WiFiDirectActivity.TAG, e.getMessage());
-        }finally{
-            serverSocket.close();
         }
     }
 
@@ -67,8 +89,6 @@ public class ControlLayer implements Runnable{
 
                     success = true;
 
-                } catch (InterruptedException e) {
-                    Log.e(WiFiDirectActivity.TAG, e.getMessage());
                 } catch (IOException e){
                     Log.d(WiFiDirectActivity.TAG, "Init failed, try again");
                 }
@@ -92,7 +112,7 @@ public class ControlLayer implements Runnable{
                 socket.setSoTimeout(5000);
 
                 // Write to the socket
-                writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                 writer.write(message);
                 writer.flush();
 
@@ -111,17 +131,13 @@ public class ControlLayer implements Runnable{
         return success;
     }
 
-    private void processRequest(Socket clientSocket){
-
-        // Read message from the socket
-        BufferedReader Reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        String request = Reader.readLine();
+    private void processRequest(String request, Socket clientSocket){
 
         // Process request and send response as needed
         if (request.contains("HELLO")){
 
             // Store the received IP in the HashSet
-            String ip = socket.getRemoteSocketAddress().toString();
+            String ip = clientSocket.getRemoteSocketAddress().toString();
             ip = ip.substring(ip.indexOf('/')+1, ip.indexOf(':'));
             peerIP.add(ip);
             Log.d(WiFiDirectActivity.TAG, "IP Registered: " + ip);
@@ -129,13 +145,13 @@ public class ControlLayer implements Runnable{
             // Construct the IP set string
             String ipset = "";
             for(Iterator it = peerIP.iterator(); it.hasNext();){
-                ipset += it.next() + '/';
+                ipset += it.next() + "/";
             }
 
             // Broadcast the new IP to everyone
             for(Iterator it = peerIP.iterator(); it.hasNext();){
                 String message = "SYN:" + ipset;
-                sendMessage(message, it.next());
+                sendMessage(message, it.next().toString());
             }
 
             Log.d(WiFiDirectActivity.TAG, "IP Broadcasted: " + ipset);

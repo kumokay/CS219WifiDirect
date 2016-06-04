@@ -48,7 +48,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.android.wifidirect.DeviceListFragment.DeviceActionListener;
-import com.example.streamlocalfile.LocalFileStreamingServer;
+//import com.example.streamlocalfile.LocalFileStreamingServer;
+import com.example.android.wifidirect.ControlLayer;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
@@ -66,12 +67,13 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.ResourceBundle;
 import java.util.Scanner;
 import java.util.WeakHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.example.streamlocalfile.LocalFileStreamingServer;
+//import com.example.streamlocalfile.LocalFileStreamingServer;
 
 /**
  * A fragment that manages a particular peer and allows interaction with device
@@ -89,16 +91,17 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
-    private String myIP = null;
+    private String myIP;
 //    private String currentplayingIP = null;
     private HashSet<String> offerIP = new HashSet<String>();
     private ProgressDialog progressDialog = null;
 //    private LocalFileStreamingServer mServer = null;
 //    private Controlpath controlpath = null;
-    private Thread controlLayer = null;
+    private Thread controlLayerThread;
+    private ControlLayer controlLayerObj;
 //    private int listener = 0 ;
 //    private String server_file_uri;
-    private DataReceiver dataReceiver;
+//    private DataReceiver dataReceiver;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -138,8 +141,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                            mServer.stop();
 //                        }
 //                        Log.d(WiFiDirectActivity.TAG, "HTTP Server Terminated");
-                        if(controlLayer != null) {
-                            controlLayer.stop();
+                        if(controlLayerObj != null) {
+                            controlLayerObj.stop();
                         }
                         ((DeviceActionListener) getActivity()).disconnect();
                         resetViews();
@@ -234,7 +237,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // The owner IP is now known.
         TextView view = (TextView) mContentView.findViewById(R.id.group_owner);
         view.setText(getResources().getString(R.string.group_owner_text)
-                + ((info.isGroupOwner == true) ? getResources().getString(R.string.yes)
+                + ((info.isGroupOwner) ? getResources().getString(R.string.yes)
                 : getResources().getString(R.string.no)));
 
         // InetAddress from WifiP2pInfo struct.
@@ -246,9 +249,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // socket.
 
         if (info.groupFormed) {
-            if(controlLayer == null) {
-                controlLayer = new Thread(new Controlpath(info.isGroupOwner, info.groupOwnerAddress.getHostAddress()));
-                controlLayer.start();
+            if(controlLayerObj == null) {
+                controlLayerObj = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
+                controlLayerThread = new Thread(controlLayerObj);
+                controlLayerThread.start();
             }
             else{
                 Log.d(WiFiDirectActivity.TAG, "Control Layer previously declared");
@@ -301,8 +305,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //            controlpath.stop();
 //        }
 
-        if (controlLayer != null)
-            controlLayer.stop();
+        if (controlLayerObj != null)
+            controlLayerObj.stop();
 
         resetdata();
         TextView view = (TextView) mContentView.findViewById(R.id.device_address);
