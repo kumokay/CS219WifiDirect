@@ -16,16 +16,9 @@
 
 package com.example.android.wifidirect;
 
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Fragment;
 import android.app.ProgressDialog;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.CursorLoader;
-import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.Uri;
 import android.net.wifi.WpsInfo;
@@ -33,45 +26,16 @@ import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
-import android.os.Environment;
 import android.provider.MediaStore;
-import android.text.format.Formatter;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.example.android.wifidirect.DeviceListFragment.DeviceActionListener;
-//import com.example.streamlocalfile.LocalFileStreamingServer;
-import com.example.android.wifidirect.ControlLayer;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.ResourceBundle;
-import java.util.Scanner;
-import java.util.WeakHashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 //import com.example.streamlocalfile.LocalFileStreamingServer;
 
@@ -83,25 +47,12 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
     protected static final int CHOOSE_FILE_RESULT_CODE = 20;
     protected static final int PLAY_VIDEO_RESULT_CODE = 21;
-//    private final int MSG_IP = 0;
-//    private final int ACTIVE = 1;
-//    private final int MSG_PORT = 2;
-//    private final int MSG_BYE = 3;
-//    private final int WARNING = 4;
+
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
-    private String myIP;
-//    private String currentplayingIP = null;
-    private HashSet<String> offerIP = new HashSet<String>();
     private ProgressDialog progressDialog = null;
-//    private LocalFileStreamingServer mServer = null;
-//    private Controlpath controlpath = null;
-//    private Thread controlLayerThread;
     private ControlLayer controlLayer;
-//    private int listener = 0 ;
-//    private String server_file_uri;
-//    private DataReceiver dataReceiver;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -141,9 +92,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                            mServer.stop();
 //                        }
 //                        Log.d(WiFiDirectActivity.TAG, "HTTP Server Terminated");
-                        if(controlLayer != null) {
-                            controlLayer.stop();
-                        }
+
                         ((DeviceActionListener) getActivity()).disconnect();
                         resetViews();
                     }
@@ -158,6 +107,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                         if(info.isGroupOwner){
                             // Launch Hadoop as Master node
+                            // exec(./hd-daemon startmaster 1 ip);
                         } else {
                             // Launch Hadoop as Client node
                         }
@@ -259,10 +209,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // socket.
 
         if (info.groupFormed) {
-            controlLayer = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
-            controlLayer.start();
-//            controlLayerThread = new Thread(controlLayer);
-//            controlLayerThread.start();
+            if (controlLayer == null){
+                controlLayer = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
+                controlLayer.start();
+            }
         }
 //        if (mServer == null){
 //            mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
@@ -313,8 +263,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //            controlpath.stop();
 //        }
 
-        if (controlLayer != null)
+        if (controlLayer != null) {
             controlLayer.stop();
+            controlLayer = null;
+        }
+
 
         resetdata();
         TextView view = (TextView) mContentView.findViewById(R.id.device_address);
@@ -333,11 +286,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
     public void resetdata(){
         String myIP = null;
-//        String currentplayingIP = null;
         info = null;
-//        mServer = null;
-//        listener = 0 ;
-//        server_file_uri = null;
         Log.d(WiFiDirectActivity.TAG, "Data Reset");
     }
 //
