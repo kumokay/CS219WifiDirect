@@ -124,6 +124,11 @@ public class WiFiDirectActivity extends Activity implements ChannelListener, Dev
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.atn_show_terminal:
+                //Log.d(WiFiDirectActivity.TAG, "start terminal activity");
+                Intent intent = new Intent(this, TerminalActivity.class);
+                this.startActivity(intent);
+                return true;
             case R.id.atn_direct_enable:
                 if (manager != null && channel != null) {
 
