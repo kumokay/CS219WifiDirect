@@ -18,4 +18,5 @@
     <string name="label_me">ME</string>
     <string name="label_peers">PEERS</string>
     <string name="title_activity_terminal">TerminalActivity</string>
+    <string name="show_status_button">Show Status</string>
 </resources>

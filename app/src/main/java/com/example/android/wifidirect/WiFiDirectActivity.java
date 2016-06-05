@@ -21,6 +21,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pManager;
@@ -129,6 +130,14 @@ public class WiFiDirectActivity extends Activity implements ChannelListener, Dev
                 Intent intent = new Intent(this, TerminalActivity.class);
                 this.startActivity(intent);
                 return true;
+            case R.id.atn_show_status:
+                // Launch browser to display Hadoop status
+                String url = "http://www.google.com";
+                Intent i = new Intent(Intent.ACTION_VIEW);
+                i.setData(Uri.parse(url));
+                startActivity(i);
+                return true;
+
             case R.id.atn_direct_enable:
                 if (manager != null && channel != null) {
 
