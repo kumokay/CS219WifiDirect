@@ -12,23 +12,23 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import android.util.Log;
 import com.example.android.wifidirect.Request;
+import com.example.android.wifidirect.IPStatus;
 
 
-public class ControlLayer{
+public class ControlLayer implements Serializable{
 
     static public String goIP = null;
     static public String myIP = null;
 
     private boolean isOwner;
     private boolean isRunning;
-    private HashMap<String, Boolean> peerIP;
+    private HashMap<String, IPStatus> peerIP;
     ServerSocket serverSocket;
-
 
     public ControlLayer(boolean isOwner, String goIP){
         this.isOwner = isOwner;
         this.goIP = goIP;
-        this.peerIP = new HashMap<String, Boolean>();
+        this.peerIP = new HashMap<String, IPStatus>();
     }
 
     public void start() {
@@ -57,7 +57,15 @@ public class ControlLayer{
 
                         } catch (SocketTimeoutException s) {
                             Log.d(WiFiDirectActivity.TAG, "Waiting for client...");
+
+                            if(isOwner){
+                                broadcastMessage("HEART");
+                                for (Map.Entry<String, IPStatus> entry : peerIP.entrySet()) {
+                                    entry.getValue().incHeartBeat();
+                                }
+                            }
                             printIPtoLog();
+
                         } catch (ClassNotFoundException e){
                             Log.e(WiFiDirectActivity.TAG, "Error: ClassNotFoundException encountered");
                         } catch (IOException e) {
@@ -88,12 +96,11 @@ public class ControlLayer{
             while (!success){
                 try {
 
-
                     // Update IP variables
                     Socket socket = new Socket(goIP, 9000);
                     myIP = socket.getLocalAddress().toString().substring(1);
                     socket.close();
-//                    peerIP.put(goIP, false);
+
                     Log.d(WiFiDirectActivity.TAG, "My IP = " + myIP);
 
 
@@ -110,7 +117,7 @@ public class ControlLayer{
         else{
             myIP = goIP;
         }
-        peerIP.put(myIP, false);
+        peerIP.put(myIP, new IPStatus());
     }
 
     // Send the message and returns a boolean indicating whether it was successful
@@ -172,7 +179,7 @@ public class ControlLayer{
             // Store the received IP in the HashSet
             String ip = clientSocket.getRemoteSocketAddress().toString();
             ip = ip.substring(ip.indexOf('/')+1, ip.indexOf(':'));
-            peerIP.put(ip, false);
+            peerIP.put(ip, new IPStatus());
             Log.d(WiFiDirectActivity.TAG, "IP Registered: " + ip);
 
             // Broadcast the new IP to everyone except myself
@@ -188,10 +195,29 @@ public class ControlLayer{
         } else if(request.type.compareTo("START") == 0){
             String ip = clientSocket.getRemoteSocketAddress().toString();
             ip = ip.substring(ip.indexOf('/')+1, ip.indexOf(':'));
-            peerIP.put(ip, true);
+//            peerIP.put(ip, true);
+
+            //
+            if (peerIP.get(ip) != null)
+                peerIP.get(ip).updateStatus(true);
+            else
+                peerIP.put(ip, new IPStatus(true));
 
             broadcastMessage("SYN");
             Log.d(WiFiDirectActivity.TAG, "A Hadoop slave has been started!");
+
+        } else if(request.type.compareTo("HEART") == 0){
+            sendMessage("BEAT", goIP);
+
+        } else if(request.type.compareTo("BEAT") == 0){
+
+            // Only Group Owner will receive BEAT messages
+            String ip = clientSocket.getRemoteSocketAddress().toString();
+            ip = ip.substring(ip.indexOf('/')+1, ip.indexOf(':'));
+
+            Log.d(WiFiDirectActivity.TAG, "HEARTBEAT received from: " + ip);
+            peerIP.get(ip).decHeartBeat();
+
         }
     }
 
@@ -199,12 +225,15 @@ public class ControlLayer{
 
         Log.d(WiFiDirectActivity.TAG, "My IP = " + myIP);
         Log.d(WiFiDirectActivity.TAG, "Group consists of: \n");
-        for (Map.Entry<String, Boolean> entry : peerIP.entrySet()) {
+        for (Map.Entry<String, IPStatus> entry : peerIP.entrySet()) {
             String key = entry.getKey();
-            Boolean value = entry.getValue();
+            IPStatus value = entry.getValue();
             Log.d(WiFiDirectActivity.TAG, "IP = " + key + "\t Status = " + value);
         }
     }
+
+
+
 
 
 }
