@@ -2,6 +2,8 @@ package com.example.android.wifidirect;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.io.Serializable;
 import java.net.SocketTimeoutException;
 import java.util.*;
@@ -10,25 +12,35 @@ import java.io.ObjectOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
+import android.view.View;
+
 import com.example.android.wifidirect.Request;
 import com.example.android.wifidirect.IPStatus;
 
 
 public class ControlLayer implements Serializable{
 
+    private static final int MASTER = 1;
+
     static public String goIP = null;
     static public String myIP = null;
+
+    private Handler handler;
 
     private boolean isOwner;
     private boolean isRunning;
     private HashMap<String, IPStatus> peerIP;
     ServerSocket serverSocket;
 
-    public ControlLayer(boolean isOwner, String goIP){
+    public ControlLayer(boolean isOwner, String goIP, Handler handler){
         this.isOwner = isOwner;
         this.goIP = goIP;
         this.peerIP = new HashMap<String, IPStatus>();
+        this.handler = handler;
     }
 
     public void start() {
@@ -46,7 +58,6 @@ public class ControlLayer implements Serializable{
                         try {
                             Socket clientSocket = serverSocket.accept();
 
-
                             Log.d(WiFiDirectActivity.TAG, "New connection accepted");
                             ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(clientSocket.getInputStream()));
                             Request request = (Request) in.readObject();
@@ -61,7 +72,8 @@ public class ControlLayer implements Serializable{
                             if(isOwner){
                                 broadcastMessage("HEART");
                                 for (Map.Entry<String, IPStatus> entry : peerIP.entrySet()) {
-                                    entry.getValue().incHeartBeat();
+                                    if (entry.getKey() != myIP)
+                                        entry.getValue().incHeartBeat();
                                 }
                             }
                             printIPtoLog();
@@ -130,8 +142,8 @@ public class ControlLayer implements Serializable{
                 boolean success = false;
                 while (!success && trialCounter != 0)
                 {
-
                     try {
+
                         // Create socket
                         Socket socket = new Socket(ip, 9000);
 
@@ -193,6 +205,9 @@ public class ControlLayer implements Serializable{
             peerIP = request.map;
 
         } else if(request.type.compareTo("START") == 0){
+
+            // Only Group Owner in a WiFiDirect group will receive SLAVE messages
+
             String ip = clientSocket.getRemoteSocketAddress().toString();
             ip = ip.substring(ip.indexOf('/')+1, ip.indexOf(':'));
 //            peerIP.put(ip, true);
@@ -204,9 +219,17 @@ public class ControlLayer implements Serializable{
                 peerIP.put(ip, new IPStatus(true));
 
             broadcastMessage("SYN");
-            Log.d(WiFiDirectActivity.TAG, "A Hadoop slave has been started!");
+            Log.d(WiFiDirectActivity.TAG, "A Hadoop instance has been started!");
+
+        } else if(request.type.compareTo("MASTER") == 0){
+
+            // Enable the button
+            Message msg = handler.obtainMessage();
+            msg.what = MASTER;
+            handler.sendMessage(msg);
 
         } else if(request.type.compareTo("HEART") == 0){
+
             sendMessage("BEAT", goIP);
 
         } else if(request.type.compareTo("BEAT") == 0){
@@ -231,6 +254,8 @@ public class ControlLayer implements Serializable{
             Log.d(WiFiDirectActivity.TAG, "IP = " + key + "\t Status = " + value);
         }
     }
+
+
 
 
 

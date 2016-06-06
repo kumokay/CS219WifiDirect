@@ -27,6 +27,8 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener;
 import android.os.Bundle;
+import android.os.Message;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -35,6 +37,12 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.example.android.wifidirect.DeviceListFragment.DeviceActionListener;
+
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.HashSet;
 
 //import com.example.streamlocalfile.LocalFileStreamingServer;
@@ -53,6 +61,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private WifiP2pInfo info;
     private ProgressDialog progressDialog = null;
     private ControlLayer controlLayer;
+    private ExecutionLayer executionLayer;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -98,21 +107,36 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     }
                 });
 
-        mContentView.findViewById(R.id.btn_start_client).setOnClickListener(
+        mContentView.findViewById(R.id.btn_start_hadoop).setOnClickListener(
                 new View.OnClickListener() {
 
                     @Override
                     public void onClick(View v) {
                         // Start Hadoop client or master mode
+//                        if (executionLayer == null){
+//                            executionLayer = new ExecutionLayer();
+//                            executionLayer.start();
+//                        }
 
                         if(info.isGroupOwner){
                             // Launch Hadoop as Master node
                             // exec(./hd-daemon startmaster 1 ip);
+
+//                            executionLayer.executeCommand("sh /data/bootubuntu.sh /data/ubuntu-14.04.img");
+//                            executionLayer.executeCommand("uname");
+                            controlLayer.broadcastMessage("MASTER");
+
                         } else {
                             // Launch Hadoop as Client node
+
+//                            executionLayer.executeCommand("sh /data/bootubuntu.sh /data/ubuntu-14.04.img");
+//                            executionLayer.executeCommand("uname");
                         }
-                        
                         controlLayer.sendMessage("START", controlLayer.goIP);
+
+
+                        mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.GONE);
+                        mContentView.findViewById(R.id.btn_stop_hadoop).setVisibility(View.VISIBLE);
 
 //
 //                        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
@@ -121,23 +145,21 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     }
                 });
 
-//        mContentView.findViewById(R.id.stop_server).setOnClickListener(
-//                new View.OnClickListener() {
-//                    @Override
-//                    public void onClick(View v) {
-//                        controlpath.stop();
-//                        if (mServer != null) {
-//                            Log.d(WiFiDirectActivity.TAG, "HTTP Server stopped without being declared");
-//                            mServer.stop();
-//                            mServer = null;
-//                        }
-//                        mContentView.findViewById(R.id.stop_server).setVisibility(View.GONE);
-//                        ((TextView) mContentView.findViewById(R.id.btn_start_client)).setVisibility(View.VISIBLE);
-//                        ((TextView) mContentView.findViewById(R.id.status_text)).setText("");
-//                        listener = 0;
-//                    }
-//                }
-//        );
+        mContentView.findViewById(R.id.btn_stop_hadoop).setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        // Stop Execution Layer
+                        if (executionLayer != null){
+                            executionLayer.stop();
+                            executionLayer = null;
+                        }
+
+                        mContentView.findViewById(R.id.btn_stop_hadoop).setVisibility(View.GONE);
+                        mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.VISIBLE);
+                    }
+                }
+        );
 
         return mContentView;
     }
@@ -208,9 +230,25 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // server. The file server is single threaded, single connection server
         // socket.
 
+        final Handler handler = new Handler(){
+
+            private static final int MASTER = 1;
+
+            @Override
+            public void handleMessage(Message msg) {
+                switch(msg.what){
+                    case MASTER:
+                        mContentView.findViewById(R.id.btn_start_hadoop).setEnabled(true);
+                        break;
+                    default:
+                        Log.e(WiFiDirectActivity.TAG, "Error: unexpected message in handler");
+                }
+            }
+        };
+
         if (info.groupFormed) {
             if (controlLayer == null){
-                controlLayer = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
+                controlLayer = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress(), handler);
                 controlLayer.start();
             }
         }
@@ -218,7 +256,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //            mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
 //        }
 
-        mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
+        mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.VISIBLE);
+        if (info.isGroupOwner)
+            mContentView.findViewById(R.id.btn_start_hadoop).setEnabled(true);
+        else
+            mContentView.findViewById(R.id.btn_start_hadoop).setEnabled(false);
 
         //hide the connect button
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
@@ -263,9 +305,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //            controlpath.stop();
 //        }
 
+        // Stop Control Layer
         if (controlLayer != null) {
             controlLayer.stop();
             controlLayer = null;
+        }
+
+        // Stop Execution Layer
+        if (executionLayer != null){
+            executionLayer.stop();
+            executionLayer = null;
         }
 
 
@@ -279,7 +328,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view = (TextView) mContentView.findViewById(R.id.status_text);
         view.setText(R.string.empty);
 
-        mContentView.findViewById(R.id.btn_start_client).setVisibility(View.GONE);
+        mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.GONE);
 
         this.getView().setVisibility(View.GONE);
     }
