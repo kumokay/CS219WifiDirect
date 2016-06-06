@@ -17,23 +17,23 @@ import android.util.Log;
 
 public class ControlLayer implements Serializable{
 
-    private static final int MASTER = 1;
+//    private static final int MASTER = 1;
 
     static public String goIP = null;
     static public String myIP = null;
 
-    private Handler handler;
+//    private Handler handler;
 
     private boolean isOwner;
     private boolean isRunning;
     private HashMap<String, IPStatus> peerIP;
     ServerSocket serverSocket;
 
-    public ControlLayer(boolean isOwner, String goIP, Handler handler){
+    public ControlLayer(boolean isOwner, String goIP){
         this.isOwner = isOwner;
         this.goIP = goIP;
         this.peerIP = new HashMap<String, IPStatus>();
-        this.handler = handler;
+//        this.handler = handler;
     }
 
     public void start() {
@@ -194,6 +194,7 @@ public class ControlLayer implements Serializable{
         } else if (request.type.compareTo("SYN") == 0) {
             // Only peers in a WiFiDirect group will receive SYN messages sent by the Group Owner
 
+
             peerIP = request.map;
 
         } else if(request.type.compareTo("START") == 0){
@@ -216,9 +217,9 @@ public class ControlLayer implements Serializable{
         } else if(request.type.compareTo("MASTER") == 0){
 
             // Enable the button
-            Message msg = handler.obtainMessage();
-            msg.what = MASTER;
-            handler.sendMessage(msg);
+//            Message msg = handler.obtainMessage();
+//            msg.what = MASTER;
+//            handler.sendMessage(msg);
 
         } else if(request.type.compareTo("HEART") == 0){
 

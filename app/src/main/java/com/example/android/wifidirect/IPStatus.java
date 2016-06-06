@@ -27,6 +27,10 @@ public class IPStatus implements Serializable {
         started = update;
     }
 
+    public Boolean getStartStatus() {
+        return started;
+    }
+
     public void incHeartBeat(){
         missedHeartbeat = new Integer(missedHeartbeat + 1);
     }

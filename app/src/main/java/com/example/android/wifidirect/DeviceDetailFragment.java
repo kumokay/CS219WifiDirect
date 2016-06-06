@@ -110,7 +110,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
 //                            executionLayer.executeCommand("sh /data/bootubuntu.sh /data/ubuntu-14.04.img");
 //                            executionLayer.executeCommand("uname");
-                            controlLayer.broadcastMessage("MASTER");
+
 
                         } else {
                             // Launch Hadoop as Client node
@@ -119,7 +119,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                            executionLayer.executeCommand("uname");
                         }
                         controlLayer.sendMessage("START", controlLayer.goIP);
-
 
                         mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.GONE);
                         mContentView.findViewById(R.id.btn_stop_hadoop).setVisibility(View.VISIBLE);
@@ -216,25 +215,25 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // server. The file server is single threaded, single connection server
         // socket.
 
-        final Handler handler = new Handler(){
-
-            private static final int MASTER = 1;
-
-            @Override
-            public void handleMessage(Message msg) {
-                switch(msg.what){
-                    case MASTER:
-                        mContentView.findViewById(R.id.btn_start_hadoop).setEnabled(true);
-                        break;
-                    default:
-                        Log.e(WiFiDirectActivity.TAG, "Error: unexpected message in handler");
-                }
-            }
-        };
+//        final Handler handler = new Handler(){
+//
+//            private static final int MASTER = 1;
+//
+//            @Override
+//            public void handleMessage(Message msg) {
+//                switch(msg.what){
+//                    case MASTER:
+//                        mContentView.findViewById(R.id.btn_start_hadoop).setEnabled(true);
+//                        break;
+//                    default:
+//                        Log.e(WiFiDirectActivity.TAG, "Error: unexpected message in handler");
+//                }
+//            }
+//        };
 
         if (info.groupFormed) {
             if (controlLayer == null){
-                controlLayer = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress(), handler);
+                controlLayer = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
                 controlLayer.start();
             }
         }
