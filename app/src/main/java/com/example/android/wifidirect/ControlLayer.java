@@ -2,8 +2,6 @@ package com.example.android.wifidirect;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.io.Serializable;
 import java.net.SocketTimeoutException;
 import java.util.*;
@@ -12,14 +10,9 @@ import java.io.ObjectOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
-import android.view.View;
-
-import com.example.android.wifidirect.Request;
-import com.example.android.wifidirect.IPStatus;
 
 
 public class ControlLayer implements Serializable{
@@ -114,7 +107,6 @@ public class ControlLayer implements Serializable{
                     socket.close();
 
                     Log.d(WiFiDirectActivity.TAG, "My IP = " + myIP);
-
 
                     // Register IP with Group Owner
                     sendMessage("HELLO", goIP);

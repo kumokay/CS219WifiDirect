@@ -3,15 +3,9 @@ package com.example.android.wifidirect;
 import android.util.Log;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
 
 /**
  * Created by Lui on 6/5/16.
