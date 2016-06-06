@@ -18,12 +18,12 @@
         android:layout_alignParentRight="true" />
 
     <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Clear"
-        android:id="@+id/button_Clear"
-        android:layout_below="@+id/editText_Command"
-        android:layout_alignParentLeft="true" />
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="Clear"
+    android:id="@+id/button_Clear"
+    android:layout_below="@+id/editText_Command"
+    android:layout_alignParentLeft="true" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -41,4 +41,12 @@
         android:id="@+id/button_Send"
         android:layout_above="@+id/textView_Terminal"
         android:layout_toRightOf="@+id/button_Clear" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Start/StopHadoop"
+        android:id="@+id/button_startStopHadoop"
+        android:layout_above="@+id/textView_Terminal"
+        android:layout_toRightOf="@+id/button_Send" />
 </RelativeLayout>
