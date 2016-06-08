@@ -10,8 +10,7 @@ import java.io.ObjectOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import android.os.Handler;
-import android.os.Message;
+
 import android.util.Log;
 
 
@@ -25,18 +24,31 @@ public class ControlLayer implements Serializable{
 //    private Handler handler;
 
     private boolean isOwner;
-    private boolean isRunning;
+    private boolean isRunning = false;
     private HashMap<String, IPStatus> peerIP;
     ServerSocket serverSocket;
 
-    public ControlLayer(boolean isOwner, String goIP){
+    private TerminalFragment terminal_activity = null;
+
+    public ControlLayer(boolean isOwner, String goIP, TerminalFragment activity){
         this.isOwner = isOwner;
         this.goIP = goIP;
         this.peerIP = new HashMap<String, IPStatus>();
+        this.terminal_activity = activity;
 //        this.handler = handler;
     }
 
+    public ControlLayerInfo getControlLayerInfo()
+    {
+        return (new ControlLayerInfo(goIP, myIP, isOwner, peerIP));
+    }
+
     public void start() {
+
+        if(isRunning)
+        {
+            return;
+        }
 
         new Thread() {
             public void run() {
@@ -89,9 +101,10 @@ public class ControlLayer implements Serializable{
 
     }
 
-    public void stop(){
+    // kumokay: we don't need this
+    /*public void stop(){
         isRunning = false;
-    }
+    }*/
 
     public void init(){
         // if not owner, send message to owner to register IP
@@ -155,7 +168,7 @@ public class ControlLayer implements Serializable{
                         Log.d(WiFiDirectActivity.TAG, "Message Sent: " + type);
                     } catch (IOException e) {
                         trialCounter--;
-                        Log.e(WiFiDirectActivity.TAG, "Error in sendMessage: \t Retry Counter = " + trialCounter);
+                        Log.e(WiFiDirectActivity.TAG, "Error in sendMessage: from " + ip.toString() + " to "+ peerIP.toString() +"\t Retry Counter = " + trialCounter);
                         e.printStackTrace(System.err);
                     }
                 }
@@ -188,14 +201,16 @@ public class ControlLayer implements Serializable{
 
             // Broadcast the new IP to everyone except myself
             broadcastMessage("SYN");
+            //GO update control layer info
+            this.terminal_activity.updateControlLayerInfo(this.getControlLayerInfo());
 
             Log.d(WiFiDirectActivity.TAG, "IP Broadcasted!");
 
         } else if (request.type.compareTo("SYN") == 0) {
             // Only peers in a WiFiDirect group will receive SYN messages sent by the Group Owner
-
-
             peerIP = request.map;
+            // peer update control layer info
+            this.terminal_activity.updateControlLayerInfo(this.getControlLayerInfo());
 
         } else if(request.type.compareTo("START") == 0){
 
@@ -211,7 +226,8 @@ public class ControlLayer implements Serializable{
             else
                 peerIP.put(ip, new IPStatus(true));
 
-            broadcastMessage("SYN");
+            // kumokay: we don't need this
+            //broadcastMessage("SYN");
             Log.d(WiFiDirectActivity.TAG, "A Hadoop instance has been started!");
 
         } else if(request.type.compareTo("MASTER") == 0){

@@ -43,7 +43,7 @@
         <!-- <service android:enabled="true" android:name=".FileTransferService" /> -->
 
         <activity
-            android:name=".TerminalActivity"
+            android:name=".TerminalFragment"
             android:label="@string/title_activity_terminal"
             android:parentActivityName=".WiFiDirectActivity">
             <meta-data

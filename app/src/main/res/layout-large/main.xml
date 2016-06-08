@@ -10,7 +10,14 @@
             <!-- Preview: layout=@layout/row_devices -->
         </fragment>
         <fragment class="com.example.android.wifidirect.DeviceDetailFragment"
-            android:id="@+id/frag_detail" android:layout_width="match_parent"
+            android:id="@+id/frag_detail" android:layout_width="@dimen/tablet_list_width"
+            android:layout_height="match_parent">
+            <!-- Preview: layout=@layout/device_detail -->
+        </fragment>
+        <fragment
+            class="com.example.android.wifidirect.TerminalFragment"
+            android:id="@+id/frag_terminal"
+            android:layout_width="match_parent"
             android:layout_height="match_parent">
             <!-- Preview: layout=@layout/device_detail -->
         </fragment>

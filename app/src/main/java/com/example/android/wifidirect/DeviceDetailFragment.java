@@ -19,6 +19,7 @@ package com.example.android.wifidirect;
 import android.app.Fragment;
 import android.app.ProgressDialog;
 import android.content.CursorLoader;
+import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.net.wifi.WpsInfo;
@@ -27,16 +28,14 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener;
 import android.os.Bundle;
-import android.os.Message;
-import android.os.Handler;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-
 import com.example.android.wifidirect.DeviceListFragment.DeviceActionListener;
+
 
 
 /**
@@ -52,8 +51,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private WifiP2pDevice device;
     private WifiP2pInfo info;
     private ProgressDialog progressDialog = null;
-    private ControlLayer controlLayer;
-    private ExecutionLayer executionLayer;
+    //private ControlLayer controlLayer = null;
+    //private ExecutionLayer executionLayer = null;
+
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -92,7 +92,20 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         resetViews();
                     }
                 });
+        /*mContentView.findViewById(R.id.btn_start_terminal).setOnClickListener(
+                new View.OnClickListener() {
 
+                    @Override
+                    public void onClick(View v) {
+                        //terminalView_intent = new Intent(getActivity(), TerminalFragment.class);
+                        //terminalView_intent.putExtra("WifiP2pInfo", info); // pass Parcelable object to activity
+                        //getActivity().startActivity(terminalView_intent);
+                        TerminalFragment fragment = (TerminalFragment) getFragmentManager()
+                                .findFragmentById(R.id.frag_terminal);
+
+                    }
+                });*/
+/*
         mContentView.findViewById(R.id.btn_start_hadoop).setOnClickListener(
                 new View.OnClickListener() {
 
@@ -102,7 +115,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                        if (executionLayer == null){
 //                            executionLayer = new ExecutionLayer();
 //                            executionLayer.start();
-//                        }
+//                       }
 
                         if(info.isGroupOwner){
                             // Launch Hadoop as Master node
@@ -145,7 +158,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     }
                 }
         );
-
+*/
         return mContentView;
     }
 
@@ -232,17 +245,22 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //        };
 
         if (info.groupFormed) {
-            if (controlLayer == null){
+            // kumokay: move control layer to terminal activity
+            /*if (controlLayer == null){
                 controlLayer = new ControlLayer(info.isGroupOwner, info.groupOwnerAddress.getHostAddress());
                 controlLayer.start();
-            }
+            }*/
+            //mContentView.findViewById(R.id.btn_start_terminal).setVisibility(View.VISIBLE);
+            TerminalFragment fragment = (TerminalFragment) getFragmentManager()
+                    .findFragmentById(R.id.frag_terminal);
+            fragment.enableTerminal(this.info);
         }
 
-        mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.VISIBLE);
+        /*mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.VISIBLE);
         if (info.isGroupOwner)
             mContentView.findViewById(R.id.btn_start_hadoop).setEnabled(true);
         else
-            mContentView.findViewById(R.id.btn_start_hadoop).setEnabled(false);
+            mContentView.findViewById(R.id.btn_start_hadoop).setEnabled(false);*/
 
         //hide the connect button
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
@@ -267,19 +285,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
      */
     public void resetViews() {
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.VISIBLE);
-        mContentView.findViewById(R.id.stop_server).setVisibility(View.GONE);
-
-        // Stop Control Layer
-        if (controlLayer != null) {
-            controlLayer.stop();
-            controlLayer = null;
-        }
-
-        // Stop Execution Layer
-        if (executionLayer != null){
-            executionLayer.stop();
-            executionLayer = null;
-        }
+        //mContentView.findViewById(R.id.btn_start_terminal).setVisibility(View.GONE);
 
         resetdata();
         TextView view = (TextView) mContentView.findViewById(R.id.device_address);
@@ -291,9 +297,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view = (TextView) mContentView.findViewById(R.id.status_text);
         view.setText(R.string.empty);
 
-        mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.GONE);
+        /*mContentView.findViewById(R.id.btn_start_hadoop).setVisibility(View.GONE);*/
 
         this.getView().setVisibility(View.GONE);
+
+        TerminalFragment fragment = (TerminalFragment) getFragmentManager()
+                .findFragmentById(R.id.frag_terminal);
+        fragment.disableTerminal();
     }
 
     public void resetdata(){

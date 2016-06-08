@@ -1,7 +1,6 @@
 package com.example.android.wifidirect;
 
 import android.util.Log;
-import android.widget.TextView;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -13,25 +12,30 @@ import java.io.InputStreamReader;
  */
 public class ExecutionLayer {
     public static final String TAG = "ExecutionLayer";
-    private TerminalActivity terminal_activity = null;
+    private TerminalFragment terminal_activity = null;
 
     //ExecutionLayer(){}
-    ExecutionLayer(TerminalActivity activity)
+    ExecutionLayer(TerminalFragment activity)
     {
         terminal_activity = activity;
     }
 
 
-    boolean isRunning;
+    boolean isRunning = false;
     DataOutputStream writer;
 
     public void start(){
 
+        if(isRunning)
+        {
+            return;
+        }
+
         isRunning = true;
 
         try{
-            final Process su = Runtime.getRuntime().exec("sh"); // for android emulator testing
-            //final Process su = Runtime.getRuntime().exec("su");
+            //final Process su = Runtime.getRuntime().exec("sh"); // for android emulator testing
+            final Process su = Runtime.getRuntime().exec("su");
 
             // Print Errors
             new Thread() {
@@ -88,11 +92,10 @@ public class ExecutionLayer {
             e.printStackTrace();
         }
     }
-
+/* kumokay: dont need this
     public void stop(){
         isRunning = false;
-        executeCommand("exit");
-    }
+    }*/
 
 
     public void executeCommand(String cmd){
